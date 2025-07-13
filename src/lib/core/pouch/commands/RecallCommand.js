@@ -4,32 +4,55 @@ const path = require('path')
 const { COMMANDS } = require('../../../../constants')
 const { getGlobalResourceManager } = require('../../resource')
 const { getDirectoryService } = require('../../../utils/DirectoryService')
+const logger = require('../../../utils/logger')
 
 /**
- * 记忆检索锦囊命令
- * 负责从记忆库中检索相关知识和经验
+ * 记忆检索锦囊命令 - 纯XML模式
+ * 负责从XML格式记忆库中检索相关知识和经验
+ * 已升级为统一XML架构，移除Markdown兼容逻辑
  */
 class RecallCommand extends BasePouchCommand {
   constructor () {
     super()
-    // 复用ActionCommand的ResourceManager方式
+    this.lastSearchCount = 0
     this.resourceManager = getGlobalResourceManager()
-    this.directoryService = getDirectoryService()
+    this.FORCE_XML_MODE = true  // 🎯 强制XML模式标志
   }
 
   getPurpose () {
-    return 'AI主动检索记忆中的专业知识、最佳实践和历史经验'
+    return 'AI主动检索记忆中的专业知识、最佳实践和历史经验（纯XML模式）'
   }
 
   async getContent (args) {
-    const [query] = args
+    // 解析参数：--role, query
+    const { role, query } = this.parseArgs(args)
+
+    if (!role) {
+      return `❌ 错误：缺少必填参数 role
+
+🎯 **使用方法**：
+recall 角色ID [查询关键词]
+
+📋 **示例**：
+recall java-developer "React Hooks"
+recall product-manager  # 查看所有产品经理记忆
+recall copywriter "A/B测试"
+
+💡 **可用角色ID**：通过 welcome 工具查看所有可用角色`
+    }
+
+    logger.step('🧠 [RecallCommand] 开始记忆检索流程 (纯XML模式)')
+    logger.info(`🔍 [RecallCommand] 角色: ${role}, 查询内容: ${query ? `"${query}"` : '全部记忆'}`)
 
     try {
-      const memories = await this.getAllMemories(query)
+      // 🎯 传递role参数到检索方法
+      const memories = await this.getXMLMemoriesOnly(query, role)
+
+      logger.success(`✅ [RecallCommand] XML记忆检索完成 - 找到 ${memories.length} 条匹配记忆`)
 
       if (memories.length === 0) {
         if (query) {
-          // 针对特定查询的优化提示
+          logger.warn(`⚠️ [RecallCommand] 未找到匹配查询"${query}"的记忆`)
           return `🔍 记忆检索结果：未找到匹配"${query}"的相关记忆
 
 💡 优化建议：
@@ -43,7 +66,7 @@ class RecallCommand extends BasePouchCommand {
 - 使用 remember 工具记录新的相关知识
 - 使用 learn 工具学习相关资源后再检索`
         } else {
-          // 无记忆的情况
+          logger.warn('⚠️ [RecallCommand] 记忆体系为空')
           return `🧠 AI记忆体系中暂无内容。
 💡 建议：
 1. 使用 MCP PromptX remember 工具内化新知识
@@ -61,8 +84,42 @@ ${formattedMemories}
 2. 根据实际情况调整和变通
 3. 持续学习和增强记忆能力`
     } catch (error) {
-      return `❌ 检索记忆时出错：${error.message}`
+      logger.error(`❌ [RecallCommand] 记忆检索失败: ${error.message}`)
+      logger.debug(`🐛 [RecallCommand] 错误堆栈: ${error.stack}`)
+      return `❌ 检索记忆时出错：${error.message}
+
+🛡️ **数据安全提示**：
+- 如果是升级后首次使用，数据在 .promptx/backup/ 目录中有备份
+- DPML格式记忆文件位置：.promptx/memory/declarative.dpml
+- 如需帮助，请检查备份数据或重新运行记忆迁移`
     }
+  }
+
+  /**
+   * 🎯 解析命令行参数 - role作为第一个位置参数
+   */
+  parseArgs(args) {
+    let query = ''
+    let role = ''
+    let argIndex = 0
+    
+    // 第一个参数是role
+    if (args.length > 0) {
+      role = args[0]
+      argIndex = 1
+    }
+    
+    // 从第二个参数开始解析查询内容
+    for (let i = argIndex; i < args.length; i++) {
+      // 查询参数
+      if (query) {
+        query += ' ' + args[i]
+      } else {
+        query = args[i]
+      }
+    }
+    
+    return { role, query }
   }
 
   getPATEOAS (args) {
@@ -104,192 +161,73 @@ ${formattedMemories}
   }
 
   /**
-   * 获取所有记忆（支持多行格式，使用ResourceManager路径获取）
+   * 获取XML记忆（纯XML模式，移除Markdown兼容）
    */
-  async getAllMemories (query) {
+  async getXMLMemoriesOnly (query, role) {
+    logger.step('🔧 [RecallCommand] 执行纯XML检索模式')
+    
     this.lastSearchCount = 0
     const memories = []
 
-    // 确保ResourceManager已初始化（就像ActionCommand那样）
+    logger.debug('🔍 [RecallCommand] 初始化ResourceManager...')
+    
+    // 确保ResourceManager已初始化
     if (!this.resourceManager.initialized) {
+      logger.info('⚙️ [RecallCommand] ResourceManager未初始化，正在初始化...')
       await this.resourceManager.initializeWithNewArchitecture()
+      logger.success('⚙️ [RecallCommand] ResourceManager初始化完成')
     }
     
-    // 通过ResourceManager获取项目路径（与ActionCommand一致）
-    const projectPath = await this.getProjectPath()
-    const memoryDir = path.join(projectPath, '.promptx', 'memory')
-    const memoryFile = path.join(memoryDir, 'declarative.md')
+    // 🎯 使用@project协议获取记忆目录（支持HTTP模式）
+    const currentRole = role
+    logger.info(`📁 [RecallCommand] 通过@project协议解析角色记忆目录...`)
+    
+    const projectProtocol = this.resourceManager.protocols.get('project')
+    const roleMemoryDir = await projectProtocol.resolvePath(`.promptx/memory/${currentRole}`)
+    const xmlFile = path.join(roleMemoryDir, 'declarative.dpml')
+    
+    logger.info(`📁 [RecallCommand] @project协议解析结果: ${roleMemoryDir}`)
+    
+    logger.info(`📁 [RecallCommand] 检索角色记忆: ${xmlFile}`)
 
     try {
-      if (await fs.pathExists(memoryFile)) {
-        const content = await fs.readFile(memoryFile, 'utf-8')
-        const memoryBlocks = this.parseMemoryBlocks(content)
-
-        for (const memoryBlock of memoryBlocks) {
-          const memory = this.parseMemoryBlock(memoryBlock)
-          if (memory && (!query || this.matchesMemory(memory, query))) {
-            memories.push(memory)
-          }
-        }
+      // 🎯 只读取XML格式，不再兼容Markdown
+      if (await fs.pathExists(xmlFile)) {
+        logger.info('📄 [RecallCommand] 读取XML格式记忆文件')
+        const xmlMemories = await this.readXMLMemories(xmlFile, query)
+        memories.push(...xmlMemories)
+        logger.success(`📄 [RecallCommand] XML记忆读取完成 - ${xmlMemories.length} 条记忆`)
+      } else {
+        logger.warn('📄 [RecallCommand] 未找到XML记忆文件，可能需要先创建记忆')
       }
     } catch (error) {
-      console.error('Error reading memories:', error)
+      logger.error(`❌ [RecallCommand] 读取XML记忆文件时发生错误: ${error.message}`)
+      logger.debug(`🐛 [RecallCommand] 读取错误堆栈: ${error.stack}`)
     }
 
     this.lastSearchCount = memories.length
+    logger.info(`📊 [RecallCommand] XML记忆检索统计 - 总计: ${memories.length} 条`)
+    
     return memories
   }
 
-  /**
-   * 获取项目路径（与InitCommand保持一致）
-   */
-  async getProjectPath() {
-    // 使用DirectoryService统一获取项目路径
-    const context = {
-      startDir: process.cwd(),
-      platform: process.platform,
-      avoidUserHome: true
-    }
-    return await this.directoryService.getProjectRoot(context)
-  }
 
-  /**
-   * 解析记忆块（新多行格式）
-   */
-  parseMemoryBlocks (content) {
-    const blocks = []
-    const lines = content.split('\n')
-    let currentBlock = []
-    let inBlock = false
-
-    for (const line of lines) {
-      if (line.match(/^- \d{4}\/\d{2}\/\d{2} \d{2}:\d{2} START$/)) {
-        // 开始新的记忆块
-        if (inBlock && currentBlock.length > 0) {
-          blocks.push(currentBlock.join('\n'))
-        }
-        currentBlock = [line]
-        inBlock = true
-      } else if (line === '- END' && inBlock) {
-        // 结束当前记忆块
-        currentBlock.push(line)
-        blocks.push(currentBlock.join('\n'))
-        currentBlock = []
-        inBlock = false
-      } else if (inBlock) {
-        // 记忆块内容
-        currentBlock.push(line)
-      }
-    }
-
-    // 处理未结束的块
-    if (inBlock && currentBlock.length > 0) {
-      blocks.push(currentBlock.join('\n'))
-    }
-
-    return blocks
-  }
-
-  /**
-   * 解析单个记忆块
-   */
-  parseMemoryBlock (blockContent) {
-    const lines = blockContent.split('\n')
-    
-    // 解析开始行：- 2025/06/15 15:58 START
-    const startLine = lines[0]
-    const startMatch = startLine.match(/^- (\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}) START$/)
-    if (!startMatch) return null
-
-    const timestamp = startMatch[1]
-    
-    // 查找标签行：--tags xxx
-    let tagsLine = ''
-    let contentLines = []
-    
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i]
-      if (line.startsWith('--tags ')) {
-        tagsLine = line
-      } else if (line !== '- END') {
-        contentLines.push(line)
-      }
-    }
-
-    // 提取内容（去除空行）
-    const content = contentLines.join('\n').trim()
-    
-    // 解析标签
-    let tags = []
-    if (tagsLine) {
-      const tagsContent = tagsLine.replace('--tags ', '')
-      const hashTags = tagsContent.match(/#[^\s]+/g) || []
-      const regularTags = tagsContent.replace(/#[^\s]+/g, '').trim().split(/\s+/).filter(t => t)
-      tags = [...regularTags, ...hashTags]
-    }
-
-    return {
-      timestamp,
-      content,
-      tags,
-      source: 'memory'
-    }
-  }
-
-  /**
-   * 解析记忆行（向下兼容旧格式）
-   */
-  parseMemoryLine (line) {
-    // 修复正则表达式，适配实际的记忆格式
-    // 格式：- 2025/05/31 14:30 内容 --tags 标签 ##分类 #评分:8 #有效期:长期
-    const match = line.match(/^- (\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}) (.+)$/)
-    if (!match) return null
-
-    const [, timestamp, contentAndTags] = match
-    
-    // 分离内容和标签
-    let content = contentAndTags
-    let tags = []
-    
-    // 提取 --tags 后面的内容
-    const tagsMatch = contentAndTags.match(/--tags\s+(.*)/)
-    if (tagsMatch) {
-      const beforeTags = contentAndTags.substring(0, contentAndTags.indexOf('--tags')).trim()
-      content = beforeTags
-      
-      // 解析标签部分，包括 --tags 后的内容和 # 开头的标签
-      const tagsContent = tagsMatch[1]
-      const hashTags = tagsContent.match(/#[^\s]+/g) || []
-      const regularTags = tagsContent.replace(/#[^\s]+/g, '').trim().split(/\s+/).filter(t => t)
-      
-      tags = [...regularTags, ...hashTags]
-    } else {
-      // 如果没有 --tags，检查是否有直接的 # 标签
-      const hashTags = contentAndTags.match(/#[^\s]+/g) || []
-      if (hashTags.length > 0) {
-        content = contentAndTags.replace(/#[^\s]+/g, '').trim()
-        tags = hashTags
-      }
-    }
-
-    return {
-      timestamp,
-      content,
-      tags,
-      source: 'memory'
-    }
-  }
 
   /**
    * 检查记忆是否匹配查询 - 增强版匹配算法
    */
   matchesMemory (memory, query) {
+    if (!query) return true
+    
+    logger.debug(`🎯 [RecallCommand] 开始匹配检查 - 查询: "${query}", 记忆: "${memory.content.substring(0, 30)}..."`)
+    
     const lowerQuery = query.toLowerCase()
     const lowerContent = memory.content.toLowerCase()
     
     // 1. 完全匹配 - 最高优先级
     if (lowerContent.includes(lowerQuery) || 
         memory.tags.some(tag => tag.toLowerCase().includes(lowerQuery))) {
+      logger.debug(`✅ [RecallCommand] 完全匹配成功`)
       return true
     }
     
@@ -301,7 +239,10 @@ ${formattedMemories}
         memory.tags.some(tag => tag.toLowerCase().includes(word))
       )
       // 如果匹配了一半以上的关键词，认为相关
-      return matchedWords.length >= Math.ceil(queryWords.length / 2)
+      if (matchedWords.length >= Math.ceil(queryWords.length / 2)) {
+        logger.debug(`✅ [RecallCommand] 分词匹配成功 - 匹配词数: ${matchedWords.length}/${queryWords.length}`)
+        return true
+      }
     }
     
     // 3. 模糊匹配 - 支持常见同义词和缩写
@@ -309,10 +250,12 @@ ${formattedMemories}
     for (const synonym of synonyms) {
       if (lowerContent.includes(synonym) || 
           memory.tags.some(tag => tag.toLowerCase().includes(synonym))) {
+        logger.debug(`✅ [RecallCommand] 同义词匹配成功 - 同义词: "${synonym}"`)
         return true
       }
     }
     
+    logger.debug(`❌ [RecallCommand] 无匹配`)
     return false
   }
   
@@ -366,7 +309,7 @@ ${formattedMemories}
   }
 
   /**
-   * 格式化检索到的记忆（支持多行显示）
+   * 格式化检索到的记忆（支持多行显示，确保XML反转义）
    */
   formatRetrievedKnowledge (memories, query) {
     return memories.map((memory, index) => {
@@ -374,13 +317,19 @@ ${formattedMemories}
       // 陈述性记忆的完整性对于系统价值至关重要
       let content = memory.content
       
+      // 🔧 确保XML转义字符被正确反转义
+      content = this.unescapeXML(content)
+      
       // 只对格式进行优化，但不截断内容
       // 确保换行符正确显示
       content = content.trim()
 
+      // 🔧 也要对标签进行反转义处理
+      const unescapedTags = memory.tags.map(tag => this.unescapeXML(tag))
+
       return `📝 ${index + 1}. **记忆** (${memory.timestamp})
 ${content}
-${memory.tags.slice(0, 8).join(' ')}  
+${unescapedTags.slice(0, 8).join(' ')}  
 ---`
     }).join('\n')
   }
@@ -408,6 +357,116 @@ ${memory.tags.slice(0, 8).join(' ')}
     }
 
     return query + '-advanced'
+  }
+
+  /**
+   * 读取XML格式记忆
+   */
+  async readXMLMemories (xmlFile, query) {
+    logger.step('📄 [RecallCommand] 开始读取XML格式记忆')
+    
+    const memories = []
+    
+    try {
+      const xmlContent = await fs.readFile(xmlFile, 'utf8')
+      logger.info(`📄 [RecallCommand] XML文件读取成功 - 文件大小: ${xmlContent.length} 字符`)
+      
+      const xmlMemories = this.parseXMLMemories(xmlContent)
+      logger.info(`📄 [RecallCommand] XML解析完成 - 解析出 ${xmlMemories.length} 条记忆`)
+      
+      for (const memory of xmlMemories) {
+        if (!query || this.matchesMemory(memory, query)) {
+          memories.push(memory)
+          if (query) {
+            logger.debug(`🎯 [RecallCommand] 记忆匹配成功: "${memory.content.substring(0, 30)}..."`)
+          }
+        } else if (query) {
+          logger.debug(`❌ [RecallCommand] 记忆不匹配: "${memory.content.substring(0, 30)}..."`)
+        }
+      }
+      
+      logger.success(`📄 [RecallCommand] XML记忆筛选完成 - 匹配: ${memories.length}/${xmlMemories.length} 条`)
+      
+    } catch (error) {
+      logger.error(`❌ [RecallCommand] XML记忆读取失败: ${error.message}`)
+      logger.debug(`🐛 [RecallCommand] XML读取错误堆栈: ${error.stack}`)
+    }
+    
+    return memories
+  }
+
+  /**
+   * 解析XML格式记忆
+   */
+  parseXMLMemories (xmlContent) {
+    logger.debug('🔍 [RecallCommand] 开始解析XML记忆内容')
+    
+    const memories = []
+    
+    try {
+      // 简单的XML解析（不依赖外部库）
+      const itemRegex = /<item\s+id="([^"]*?)"\s+time="([^"]*?)">(.*?)<\/item>/gs
+      let match
+      let itemCount = 0
+      
+      while ((match = itemRegex.exec(xmlContent)) !== null) {
+        itemCount++
+        const [, id, timestamp, itemContent] = match
+        
+        logger.debug(`🔍 [RecallCommand] 解析记忆项 ${itemCount}: ID=${id}, 时间=${timestamp}`)
+        
+        // 解析内容和标签
+        const contentMatch = itemContent.match(/<content>(.*?)<\/content>/s)
+        const tagsMatch = itemContent.match(/<tags>(.*?)<\/tags>/s)
+        
+        if (contentMatch) {
+          const content = this.unescapeXML(contentMatch[1].trim())
+          const tagsString = tagsMatch ? this.unescapeXML(tagsMatch[1].trim()) : ''
+          const tags = tagsString ? tagsString.split(/\s+/).filter(t => t) : []
+          
+          logger.debug(`🔍 [RecallCommand] 记忆项内容: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`)
+          logger.debug(`🔍 [RecallCommand] 记忆项标签: [${tags.join(', ')}]`)
+          
+          memories.push({
+            id,
+            timestamp,
+            content,
+            tags,
+            source: 'xml'
+          })
+        } else {
+          logger.warn(`⚠️ [RecallCommand] 记忆项 ${itemCount} 缺少content标签`)
+        }
+      }
+      
+      logger.success(`🔍 [RecallCommand] XML解析完成 - 成功解析 ${memories.length} 条记忆`)
+      
+    } catch (error) {
+      logger.error(`❌ [RecallCommand] XML解析失败: ${error.message}`)
+      logger.debug(`🐛 [RecallCommand] XML解析错误堆栈: ${error.stack}`)
+    }
+    
+    return memories
+  }
+
+  /**
+   * XML反转义函数（增强版，处理所有常见XML转义字符）
+   */
+  unescapeXML (text) {
+    if (typeof text !== 'string') {
+      return text
+    }
+    return text
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#x27;/g, "'")
+      .replace(/&#39;/g, "'")
+      .replace(/&apos;/g, "'")
+      .replace(/&#x2F;/g, '/') 
+      .replace(/&#47;/g, '/')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
   }
 }
 

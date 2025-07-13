@@ -11,6 +11,10 @@ const RoleProtocol = require('./protocols/RoleProtocol')
 const ThoughtProtocol = require('./protocols/ThoughtProtocol')
 const ExecutionProtocol = require('./protocols/ExecutionProtocol')
 const KnowledgeProtocol = require('./protocols/KnowledgeProtocol')
+const ToolProtocol = require('./protocols/ToolProtocol')
+const ManualProtocol = require('./protocols/ManualProtocol')
+const UserProtocol = require('./protocols/UserProtocol')
+const FileProtocol = require('./protocols/FileProtocol')
 
 class ResourceManager {
   constructor() {
@@ -36,12 +40,16 @@ class ResourceManager {
     // 基础协议 - 直接文件系统映射
     this.protocols.set('package', new PackageProtocol())
     this.protocols.set('project', new ProjectProtocol()) 
+    this.protocols.set('file', new FileProtocol())
+    this.protocols.set('user', new UserProtocol())
 
     // 逻辑协议 - 需要注册表查询
     this.protocols.set('role', new RoleProtocol())
     this.protocols.set('thought', new ThoughtProtocol())
     this.protocols.set('execution', new ExecutionProtocol())
     this.protocols.set('knowledge', new KnowledgeProtocol())
+    this.protocols.set('tool', new ToolProtocol())
+    this.protocols.set('manual', new ManualProtocol())
   }
 
   /**
@@ -106,6 +114,8 @@ class ResourceManager {
     const executionProtocol = this.protocols.get('execution')
     const thoughtProtocol = this.protocols.get('thought')
     const knowledgeProtocol = this.protocols.get('knowledge')
+    const toolProtocol = this.protocols.get('tool')
+    const manualProtocol = this.protocols.get('manual')
     
     if (roleProtocol) {
       roleProtocol.setRegistryManager(this)
@@ -118,6 +128,12 @@ class ResourceManager {
     }
     if (knowledgeProtocol) {
       knowledgeProtocol.setRegistryManager(this)
+    }
+    if (toolProtocol) {
+      toolProtocol.setRegistryManager(this)
+    }
+    if (manualProtocol) {
+      manualProtocol.setRegistryManager(this)
     }
     
     // 逻辑协议设置完成，不输出日志避免干扰用户界面
@@ -158,11 +174,23 @@ class ResourceManager {
         await this.initializeWithNewArchitecture()
       }
       
-      // 处理@!开头的DPML格式（如 @!role://java-developer）
-      if (resourceId.startsWith('@!')) {
+      // 处理@开头的DPML格式（如 @file://path, @!role://java-developer）
+      if (resourceId.startsWith('@')) {
         const parsed = this.protocolParser.parse(resourceId)
         
-        // 从RegistryData查找资源
+        // 对于基础协议（file, user, package, project），直接通过协议处理器加载
+        const basicProtocols = ['file', 'user', 'package', 'project']
+        if (basicProtocols.includes(parsed.protocol)) {
+          const content = await this.loadResourceByProtocol(resourceId)
+          return {
+            success: true,
+            content,
+            resourceId,
+            reference: resourceId
+          }
+        }
+        
+        // 对于逻辑协议，从RegistryData查找资源
         const resourceData = this.registryData.findResourceById(parsed.path, parsed.protocol)
         if (!resourceData) {
           throw new Error(`Resource not found: ${parsed.protocol}:${parsed.path}`)

@@ -5,7 +5,9 @@ const { COMMANDS } = require('../../../../constants')
 const { getGlobalResourceManager } = require('../../resource')
 const DPMLContentParser = require('../../dpml/DPMLContentParser')
 const SemanticRenderer = require('../../dpml/SemanticRenderer')
-const CurrentProjectManager = require('../../../utils/CurrentProjectManager')
+const ProjectManager = require('../../../utils/ProjectManager')
+const { getGlobalProjectManager } = require('../../../utils/ProjectManager')
+const { getGlobalServerEnvironment } = require('../../../utils/ServerEnvironment')
 const logger = require('../../../utils/logger')
 
 /**
@@ -15,13 +17,11 @@ const logger = require('../../../utils/logger')
 class ActionCommand extends BasePouchCommand {
   constructor () {
     super()
-    // 获取WelcomeCommand的角色注册表
-    this.welcomeCommand = null
     // 使用全局单例 ResourceManager
     this.resourceManager = getGlobalResourceManager()
     this.dpmlParser = new DPMLContentParser()
     this.semanticRenderer = new SemanticRenderer()
-    this.currentProjectManager = new CurrentProjectManager()
+    this.projectManager = getGlobalProjectManager()
   }
 
   getPurpose () {
@@ -75,7 +75,7 @@ class ActionCommand extends BasePouchCommand {
       const dependencies = await this.analyzeRoleDependencies(roleInfo)
 
       // 3. 生成学习计划并直接加载所有内容
-      return await this.generateLearningPlan(roleInfo.id, dependencies)
+      return await this.generateLearningPlan(roleInfo, dependencies)
     } catch (error) {
       logger.error('Action command error:', error)
       return `❌ 激活角色 "${roleId}" 时发生错误。
@@ -98,18 +98,32 @@ class ActionCommand extends BasePouchCommand {
   }
 
   /**
-   * 获取角色信息（从WelcomeCommand）
+   * 获取角色信息（直接从ResourceManager）
    */
   async getRoleInfo (roleId) {
     logger.debug(`[ActionCommand] getRoleInfo调用，角色ID: ${roleId}`)
     
-    // 总是创建新的WelcomeCommand实例，确保获取最新的角色信息
-    logger.debug(`[ActionCommand] 创建新的WelcomeCommand实例以获取最新角色信息`)
-    const WelcomeCommand = require('./WelcomeCommand')
-    this.welcomeCommand = new WelcomeCommand()
-
-    const result = await this.welcomeCommand.getRoleInfo(roleId)
-    logger.debug(`[ActionCommand] WelcomeCommand.getRoleInfo返回:`, result)
+    // 直接使用ResourceManager获取角色信息，移除对WelcomeCommand的依赖
+    logger.debug(`[ActionCommand] 直接从ResourceManager获取角色信息`)
+    
+    const roles = this.resourceManager.registryData.getResourcesByProtocol('role')
+    logger.debug(`[ActionCommand] 找到${roles.length}个角色`)
+    
+    const role = roles.find(r => r.id === roleId)
+    logger.debug(`[ActionCommand] 查找角色${roleId}结果:`, role ? '找到' : '未找到')
+    
+    if (!role) {
+      return null
+    }
+    
+    const result = {
+      id: role.id,
+      name: role.name,
+      description: role.description,
+      file: role.reference
+    }
+    
+    logger.debug(`[ActionCommand] 返回角色信息:`, result)
     return result
   }
 
@@ -126,9 +140,8 @@ class ActionCommand extends BasePouchCommand {
         const relativePath = filePath.replace('@package://', '')
         filePath = await packageProtocol.resolvePath(relativePath)
       } else if (filePath.startsWith('@project://')) {
-        // 对于@project://路径，使用ProjectProtocol解析
-        const ProjectProtocol = require('../../resource/protocols/ProjectProtocol')
-        const projectProtocol = new ProjectProtocol()
+        // 🎯 使用ProjectProtocol确保HTTP模式下正确的路径映射
+        const projectProtocol = this.resourceManager.protocols.get('project')
         const relativePath = filePath.replace('@project://', '')
         filePath = await projectProtocol.resolvePath(relativePath)
       }
@@ -325,10 +338,11 @@ ${result.content}
   /**
    * 生成学习计划并直接加载所有内容（包含完整的角色语义）
    */
-  async generateLearningPlan (roleId, dependencies) {
+  async generateLearningPlan (roleInfo, dependencies) {
     const { thoughts, executions, roleSemantics } = dependencies
+    const { id: roleId } = roleInfo
 
-    let content = `🎭 **角色激活完成：${roleId}** - 所有技能已自动加载\n`
+    let content = `🎭 **角色激活完成：\`${roleId}\` (${roleInfo.name})** - 所有技能已自动加载\n`
 
     // 加载思维模式技能（仅包含独立的thought引用）
     if (thoughts.size > 0) {
@@ -388,7 +402,7 @@ ${result.content}
 
     // 激活总结
     content += `# 🎯 角色激活总结\n`
-    content += `✅ **${roleId} 角色已完全激活！**\n`
+    content += `✅ **\`${roleId}\` (${roleInfo.name}) 角色已完全激活！**\n`
     content += `📋 **已获得能力**：\n`
     if (thoughts.size > 0) content += `- 🧠 思维模式：${Array.from(thoughts).join(', ')}\n`
     if (executions.size > 0) content += `- ⚡ 执行技能：${Array.from(executions).join(', ')}\n`
@@ -402,7 +416,7 @@ ${result.content}
       content += `- 🎭 角色组件：${roleComponents.join(', ')}\n`
     }
     
-    content += `💡 **现在可以立即开始以 ${roleId} 身份提供专业服务！**\n`
+    content += `💡 **现在可以立即开始以 \`${roleId}\` (${roleInfo.name}) 身份提供专业服务！**\n`
 
     // 自动执行 recall 命令
     content += await this.executeRecall(roleId)
@@ -419,8 +433,8 @@ ${result.content}
       const RecallCommand = require('./RecallCommand')
       const recallCommand = new RecallCommand()
       
-      // 执行 recall，获取所有记忆（不传入查询参数）
-      const recallContent = await recallCommand.getContent([])
+      // 执行 recall，获取所有记忆（传入角色ID参数）
+      const recallContent = await recallCommand.getContent([roleId])
       
       return `---
 ## 🧠 自动记忆检索结果
@@ -500,17 +514,40 @@ ${recallContent}
   }
 
   /**
-   * 重写execute方法以添加项目状态检查
+   * 重写execute方法以添加多项目状态检查
    */
   async execute (args = []) {
-    // 获取项目状态提示
-    const projectPrompt = await this.currentProjectManager.generateTopLevelProjectPrompt('action')
+    // 从执行上下文获取MCP信息
+    const mcpId = this.detectMcpId()
+    const ideType = await this.detectIdeType()
+    
+    // 获取多项目状态提示
+    const projectPrompt = await this.projectManager.generateTopLevelProjectPrompt('action', mcpId, ideType)
     
     const purpose = this.getPurpose()
     const content = await this.getContent(args)
     const pateoas = await this.getPATEOAS(args)
 
     return this.formatOutputWithProjectCheck(purpose, content, pateoas, projectPrompt)
+  }
+
+  /**
+   * 检测MCP进程ID
+   */
+  detectMcpId() {
+    const serverEnv = getGlobalServerEnvironment()
+    if (serverEnv.isInitialized()) {
+      return serverEnv.getMcpId()
+    }
+    return ProjectManager.generateMcpId()
+  }
+
+  /**
+   * 检测IDE类型 - 从配置文件读取，移除环境变量检测
+   */
+  async detectIdeType() {
+    const mcpId = this.detectMcpId()
+    return await this.projectManager.getIdeType(mcpId)
   }
   
   /**
