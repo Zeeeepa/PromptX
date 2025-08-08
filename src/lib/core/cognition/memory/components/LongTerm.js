@@ -4,6 +4,7 @@
 const { LongTermMemory } = require('../interfaces/LongTermMemory.js');
 const path = require('path');
 const fs = require('fs-extra');
+const logger = require('../../../../utils/logger');
 
 // 临时的内存实现，等nedb安装后替换
 class InMemoryDatastore {
@@ -145,26 +146,59 @@ class LongTerm extends LongTermMemory {
 
   recall(cue) {
     return new Promise((resolve) => {
+      logger.info('[LongTerm.recall] Starting recall with cue:', cue);
+      
       if (!cue || typeof cue !== 'string') {
         // 无线索时返回所有记忆
         this.db.find({}).sort({ timestamp: -1 }).exec((err, docs) => {
           if (err) {
+            logger.error('[LongTerm.recall] Error finding all docs:', err);
             resolve([]);
           } else {
+            logger.info('[LongTerm.recall] Found all docs count:', docs.length);
             resolve(docs.map(doc => this.deserializeEngram(doc.engram)));
           }
         });
       } else {
         // 基于cue查询：在cues数组中查找（不区分大小写）
         const lowercaseCue = cue.toLowerCase();
+        logger.info('[LongTerm.recall] Searching with lowercaseCue:', lowercaseCue);
+        
         this.db.find({}).exec((err, docs) => {
           if (err) {
+            logger.error('[LongTerm.recall] Error finding docs:', err);
             resolve([]);
           } else {
-            // 手动过滤，因为我们的内存实现的查询功能有限
-            const filtered = docs.filter(doc => {
-              return doc.cues && doc.cues.some(c => c.toLowerCase().includes(lowercaseCue));
+            logger.info('[LongTerm.recall] Total docs in db:', docs.length);
+            
+            // 打印前3个文档的cues用于调试
+            docs.slice(0, 3).forEach((doc, index) => {
+              logger.info(`[LongTerm.recall] Doc ${index} cues:`, doc.cues ? doc.cues.slice(0, 5) : 'NO CUES');
             });
+            
+            // 手动过滤，因为我们的内存实现的查询功能有限
+            let matchCount = 0; // 用于跟踪匹配数量
+            const filtered = docs.filter(doc => {
+              const hasCues = doc.cues && Array.isArray(doc.cues);
+              if (!hasCues) {
+                logger.info('[LongTerm.recall] Doc has no cues:', doc._id);
+                return false;
+              }
+              
+              const matches = doc.cues.some(c => {
+                const cueStr = c.toLowerCase();
+                const isMatch = cueStr.includes(lowercaseCue);
+                if (isMatch && matchCount < 3) { // 只记录前3个匹配
+                  logger.info(`[LongTerm.recall] Cue match found: "${c}" contains "${lowercaseCue}"`);
+                  matchCount++;
+                }
+                return isMatch;
+              });
+              
+              return matches;
+            });
+            
+            logger.info('[LongTerm.recall] Filtered results count:', filtered.length);
             
             // 按strength和timestamp排序
             filtered.sort((a, b) => {
@@ -190,27 +224,85 @@ class LongTerm extends LongTermMemory {
   extractCuesFromEngram(engram) {
     const cues = new Set();
     
-    // 1. 从content中提取关键词（简单分词）
+    // 1. 添加完整的content作为一个cue（用于精确匹配）
     if (engram.getContent()) {
-      const words = engram.getContent()
-        .toLowerCase()
-        .split(/[\s,，。.!！?？;；:：、]+/)  // 更完善的分词
-        .filter(word => word.length > 1);     // 过滤掉单字符
+      const content = engram.getContent();
+      logger.info('[LongTerm.extractCues] Original content:', content);
       
+      // 添加完整内容的小写版本
+      cues.add(content.toLowerCase());
+      
+      // 2. 智能提取关键词组和概念（保留完整概念）
+      // 提取中文词组（2-8个字的连续中文，覆盖大部分概念）
+      const chinesePatterns = content.match(/[\u4e00-\u9fa5]{2,8}/g) || [];
+      chinesePatterns.forEach(pattern => cues.add(pattern.toLowerCase()));
+      
+      // 提取英文单词和词组
+      const englishPatterns = content.match(/[A-Za-z][A-Za-z0-9]*/g) || [];
+      englishPatterns.forEach(pattern => cues.add(pattern.toLowerCase()));
+      
+      // 提取混合词（如"Sean总"）
+      const mixedPatterns = content.match(/[A-Za-z]+[\u4e00-\u9fa5]+|[\u4e00-\u9fa5]+[A-Za-z]+/g) || [];
+      mixedPatterns.forEach(pattern => cues.add(pattern.toLowerCase()));
+      
+      // 3. 基础分词作为补充（用于模糊匹配）
+      const words = content
+        .toLowerCase()
+        .split(/[\s,，。.!！?？;；:：、()（）\[\]【】{}｛｝]+/)
+        .filter(word => word.length > 1);
       words.forEach(word => cues.add(word));
+      
+      logger.info('[LongTerm.extractCues] Content cues:', Array.from(cues).slice(0, 10));
     }
     
-    // 2. 从Schema中提取Cue（schema 是 Mermaid 格式字符串）
+    // 4. 从Schema中提取完整的概念节点（不分词）
     if (engram.schema) {
-      // 简单提取 Mermaid 中的词汇
-      const mermaidWords = engram.schema
-        .split(/[\n\s]+/)
-        .filter(word => word && !word.startsWith('mindmap') && word.length > 1)
-        .map(word => word.replace(/[)(}\]{[]/g, '').toLowerCase());
-      mermaidWords.forEach(word => cues.add(word));
+      logger.info('[LongTerm.extractCues] Original schema:', engram.schema.substring(0, 200));
+      
+      // 按行分割，每行可能是一个概念节点
+      const lines = engram.schema.split('\n');
+      
+      lines.forEach(line => {
+        // 清理行，移除mindmap语法但保持概念完整
+        let cleanLine = line.trim();
+        
+        // 跳过mindmap声明和root
+        if (cleanLine === 'mindmap' || cleanLine.startsWith('root((')) {
+          // 但要提取root中的内容
+          const rootMatch = cleanLine.match(/root\(\((.+?)\)\)/);
+          if (rootMatch) {
+            cues.add(rootMatch[1].toLowerCase());
+          }
+          return;
+        }
+        
+        // 移除缩进（保留概念）
+        cleanLine = cleanLine.replace(/^\s+/, '');
+        
+        // 移除强度标记 [0.95] 等
+        cleanLine = cleanLine.replace(/\[[\d.]+\]/, '').trim();
+        
+        // 如果还有内容，添加为cue（保持完整）
+        if (cleanLine && cleanLine.length > 1) {
+          cues.add(cleanLine.toLowerCase());
+          
+          // 如果包含空格，也添加空格分割的版本（为了兼容性）
+          if (cleanLine.includes(' ')) {
+            cleanLine.split(/\s+/).forEach(part => {
+              if (part.length > 1) {
+                cues.add(part.toLowerCase());
+              }
+            });
+          }
+        }
+      });
+      
+      logger.info('[LongTerm.extractCues] Schema cues:', Array.from(cues).slice(-10)); // 记录最后10个
     }
     
-    return Array.from(cues);
+    const cuesArray = Array.from(cues);
+    logger.info('[LongTerm.extractCues] Final cues count:', cuesArray.length, 'Sample:', cuesArray.slice(0, 15));
+    return cuesArray;
   }
 
   /**
