@@ -127,13 +127,31 @@ class CognitionManager {
   }
 
   /**
-   * 启动效应 - 预激活角色的语义网络
+   * 启动效应 - 预激活角色的语义网络（包含工作记忆）
    * @param {string} role - 角色ID
-   * @returns {Promise<string>} Mermaid mindmap 格式的字符串
+   * @param {boolean} includeWorkingMemory - 是否包含工作记忆（默认true）
+   * @returns {Promise<string|Object>} Mermaid mindmap 格式的字符串或包含工作记忆的对象
    */
-  async prime(role) {
+  async prime(role, includeWorkingMemory = true) {
     const cognition = await this.getCognition(role);
-    return cognition.prime();
+    const result = await cognition.prime(includeWorkingMemory);
+    
+    // 如果包含工作记忆，格式化输出
+    if (includeWorkingMemory && typeof result === 'object' && result.workingMemory) {
+      let output = result.mindmap + '\n';
+      
+      if (result.workingMemory.length > 0) {
+        output += '\n📌 **工作记忆已激活**（强度≥' + result.threshold + '）：\n';
+        result.workingMemory.forEach(memory => {
+          output += `- ${memory.word} [${memory.strength.toFixed(2)}]\n`;
+        });
+        output += '\n💡 这些核心记忆将自动影响所有后续对话';
+      }
+      
+      return output;
+    }
+    
+    return result;
   }
 
   /**

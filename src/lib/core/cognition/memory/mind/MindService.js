@@ -67,9 +67,10 @@ class MindService {
    * 记忆新内容 - 解析 mindmap 并添加到语义网络
    * @param {string} mindmapText - Mermaid mindmap 格式的文本
    * @param {string} semanticName - 目标语义网络名称
+   * @param {number} strength - 记忆强度（可选）
    * @returns {Promise<NetworkSemantic>} 更新后的语义网络
    */
-  async remember(mindmapText, semanticName = 'global-semantic') {
+  async remember(mindmapText, semanticName = 'global-semantic', strength = 0.5) {
     if (!mindmapText || typeof mindmapText !== 'string') {
       throw new Error('Invalid mindmap text provided');
     }
@@ -93,6 +94,13 @@ class MindService {
     const newSchema = peggyMindmap.parse(normalizedMindmap);
     console.log('[MindService.remember] Parsed schema:', newSchema.name);
     
+    // 3.5. 为Schema中的所有Cue设置strength
+    if (strength !== 0.5) {
+      newSchema.getCues().forEach(cue => {
+        cue.strength = strength;
+      });
+    }
+    
     // 4. 语义等价性检测和 Schema 合并
     const semanticEquivalents = this._findSemanticEquivalents(semantic, newSchema.name);
     const existingSchema = semantic.findSchema(newSchema.name) || semanticEquivalents[0];
@@ -100,8 +108,12 @@ class MindService {
       // 使用 Mind 接口的 connect 方法进行合并
       console.log('[MindService.remember] Merging with existing schema using connect');
       existingSchema.connect(newSchema);
-      // 同步合并后的 Cues 到全局 cueLayer
+      // 同步合并后的 Cues 到全局 cueLayer，保留strength
       existingSchema.getCues().forEach(cue => {
+        // 如果是新添加的cue，更新其strength
+        if (!semantic.cueLayer.has(cue.word) || strength > cue.strength) {
+          cue.strength = strength;
+        }
         semantic.cueLayer.set(cue.word, cue);
       });
     } else {
@@ -157,9 +169,10 @@ class MindService {
   /**
    * 导出语义网络为 mindmap - 用于可视化或调试
    * @param {string} semanticName - 语义网络名称
-   * @returns {Promise<string>} Mermaid mindmap 格式的文本
+   * @param {boolean} includeWorkingMemory - 是否包含工作记忆
+   * @returns {Promise<string|Object>} Mermaid mindmap 格式的文本或包含工作记忆的对象
    */
-  async exportToMindmap(semanticName = 'global-semantic') {
+  async exportToMindmap(semanticName = 'global-semantic', includeWorkingMemory = false) {
     // 使用当前实例或加载新的
     if (!this.currentSemantic || this.currentSemantic.name !== semanticName) {
       this.currentSemantic = await NetworkSemantic.load(this.storagePath, semanticName);
@@ -168,7 +181,18 @@ class MindService {
     
     const schemas = semantic.getAllSchemas();
     if (schemas.length === 0) {
-      return `mindmap\n  ((${semantic.name}))`;
+      const baseMindmap = `mindmap\n  ((${semantic.name}))`;
+      
+      // 即使没有schemas，也要检查是否需要返回工作记忆格式
+      if (includeWorkingMemory) {
+        return {
+          mindmap: baseMindmap,
+          workingMemory: [],
+          threshold: 0.8
+        };
+      }
+      
+      return baseMindmap;
     }
     
     // 如果只有一个 Schema，直接序列化
@@ -178,6 +202,31 @@ class MindService {
       if (semantic.interceptor && semantic.interceptor.onPrime) {
         mindmap = semantic.interceptor.onPrime(mindmap);
       }
+      
+      // 如果需要包含工作记忆，处理后再返回
+      if (includeWorkingMemory) {
+        const workingMemory = [];
+        // 不再使用强度阈值，而是获取所有mindmap中的基本概念
+        // 基本概念 = 所有在mindmap结构中的节点
+        
+        semantic.cueLayer.forEach((cue, word) => {
+          // 收集所有概念，让ActionCommand基于mindmap结构决定使用哪些
+          workingMemory.push({
+            word: word,
+            strength: cue.strength,
+            type: cue.strength >= 0.8 ? 'CORE_MEMORY' : 'CONTEXT_MEMORY'
+          });
+        });
+        
+        workingMemory.sort((a, b) => b.strength - a.strength);
+        
+        return {
+          mindmap: mindmap,
+          workingMemory: workingMemory,
+          threshold: 0  // 不再使用阈值过滤，返回所有概念
+        };
+      }
+      
       return mindmap;
     }
     
@@ -254,6 +303,37 @@ class MindService {
       mindmap = semantic.interceptor.onPrime(mindmap);
     }
     
+    // 如果需要包含工作记忆
+    if (includeWorkingMemory) {
+      const workingMemory = [];
+      // 不再使用强度阈值，收集所有mindmap中的概念
+      
+      // 从所有schemas收集所有节点
+      schemas.forEach(schema => {
+        const cues = schema.getCues();
+        cues.forEach(cue => {
+          // 收集所有概念，不再基于强度过滤
+          // 避免重复添加
+          if (!workingMemory.find(m => m.word === cue.word)) {
+            workingMemory.push({
+              word: cue.word,
+              strength: cue.strength,
+              type: cue.strength >= 0.8 ? 'CORE_MEMORY' : 'CONTEXT_MEMORY'
+            });
+          }
+        });
+      });
+      
+      // 按强度降序排序
+      workingMemory.sort((a, b) => b.strength - a.strength);
+      
+      return {
+        mindmap: mindmap,
+        workingMemory: workingMemory,
+        threshold: 0  // 不再使用阈值过滤，返回所有概念
+      };
+    }
+    
     return mindmap;
   }
 
@@ -261,11 +341,12 @@ class MindService {
 
 
   /**
-   * Prime语义网络 - 加载语义网络并返回 mindmap 表示
+   * Prime语义网络 - 加载语义网络并返回 mindmap 表示（包含工作记忆）
    * @param {string} semanticName - 语义网络名称
-   * @returns {Promise<string>} Mermaid mindmap 格式的字符串
+   * @param {boolean} includeWorkingMemory - 是否包含工作记忆（默认true）
+   * @returns {Promise<string|Object>} Mermaid mindmap 格式的文本或包含工作记忆的对象
    */
-  async primeSemantic(semanticName = 'global-semantic') {
+  async primeSemantic(semanticName = 'global-semantic', includeWorkingMemory = true) {
     console.log('[MindService.primeSemantic] Loading semantic:', semanticName);
     
     // 优先使用缓存的实例，只有在没有缓存或名称不同时才重新加载
@@ -276,8 +357,8 @@ class MindService {
       logger.info('[MindService.primeSemantic] Using cached semantic network');
     }
     
-    // 转换为 mindmap
-    return this.exportToMindmap(semanticName);
+    // 转换为 mindmap（包含工作记忆）
+    return this.exportToMindmap(semanticName, includeWorkingMemory);
   }
 
   /**

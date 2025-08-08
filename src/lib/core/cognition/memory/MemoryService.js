@@ -87,13 +87,14 @@ class MemoryService {
   }
 
   /**
-   * 启动效应 - 预激活语义网络并返回 Mermaid 表示
+   * 启动效应 - 预激活语义网络并返回 Mermaid 表示（包含工作记忆）
    * @param {string} input - 语义网络名称（可选）
-   * @returns {string} Mermaid mindmap 格式的字符串
+   * @param {boolean} includeWorkingMemory - 是否包含工作记忆（默认true）
+   * @returns {string|Object} Mermaid mindmap 格式的字符串或包含工作记忆的对象
    */
-  async prime(input) {
-    // 调用语义内隐记忆的 prime 方法，直接返回 Mermaid
-    return await this.semantic.prime(input);
+  async prime(input, includeWorkingMemory = true) {
+    // 调用语义内隐记忆的 prime 方法，返回 Mermaid 和工作记忆
+    return await this.semantic.prime(input, includeWorkingMemory);
   }
 
   /**

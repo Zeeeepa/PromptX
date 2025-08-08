@@ -55,7 +55,8 @@ function addPersistableMethods(instance) {
         name: name,
         cues: schema.getCues ? schema.getCues().map(cue => ({
           word: cue.word,
-          connections: cue.getConnections ? cue.getConnections() : []
+          connections: cue.getConnections ? cue.getConnections() : [],
+          strength: cue.strength || 0.5  // 保存strength
         })) : [],
         externalConnections: schema.externalConnections ? Array.from(schema.externalConnections) : []
       })),

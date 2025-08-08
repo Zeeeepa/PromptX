@@ -438,7 +438,18 @@ ${result.content}
       
       // 获取角色的认知实例并激活语义网络
       const cognition = await cognitionManager.getCognition(roleId)
-      const semanticMermaid = await cognition.prime()
+      const primeResult = await cognition.prime()
+      
+      // 处理返回值可能是字符串或对象的情况
+      let semanticMermaid = ''
+      let workingMemory = []
+      
+      if (typeof primeResult === 'string') {
+        semanticMermaid = primeResult
+      } else if (primeResult && typeof primeResult === 'object') {
+        semanticMermaid = primeResult.mindmap || ''
+        workingMemory = primeResult.workingMemory || []
+      }
       
       if (!semanticMermaid || semanticMermaid.trim() === '') {
         // 语义网络为空，静默处理
@@ -455,6 +466,126 @@ ${semanticMermaid}
 - 💡 **示例**：如果 mindmap 中有"用户体验"，recall 时直接使用"用户体验"，不要拆分成"用户"+"体验"
 - ⚡ **技巧**：概念越精确，检索效果越好。优先使用 mindmap 中的叶子节点概念
 `
+      
+      // 如果有工作记忆，基于mindmap结构智能加载
+      if (workingMemory && workingMemory.length > 0) {
+        // 分类记忆：核心记忆（≥0.8）和上下文记忆（<0.8）
+        const coreMemories = workingMemory.filter(m => m.strength >= 0.8);
+        const contextMemories = workingMemory.filter(m => m.strength < 0.8);
+        
+        let hasMemories = false;
+        
+        // 优先显示核心记忆
+        if (coreMemories.length > 0) {
+          output += `
+## 💎 工作记忆激活（核心概念）
+🔥 **核心记忆**：以下是mindmap中的重要概念记忆：
+`
+        }
+        
+        // 基于mindmap结构智能筛选概念
+        // 策略：识别主要概念节点（非叶子节点或重要叶子节点）
+        const conceptsToRecall = []
+        const processedCues = new Set()
+        
+        // 先处理核心记忆（强度>=0.8）
+        for (const memory of coreMemories) {
+          if (!processedCues.has(memory.word)) {
+            conceptsToRecall.push(memory)
+            processedCues.add(memory.word)
+          }
+        }
+        
+        // 如果核心记忆不足，补充上下文记忆中的重要概念
+        // 识别策略：短词（通常是基本概念）或独立概念（不被其他词包含）
+        if (conceptsToRecall.length < 10 && contextMemories.length > 0) {
+          for (const memory of contextMemories) {
+            // 基本概念通常较短（<=4个字）或是独立的
+            let isBasicConcept = memory.word.length <= 4
+            
+            if (!isBasicConcept) {
+              // 检查是否是独立概念（不被其他概念包含）
+              isBasicConcept = true
+              for (const other of workingMemory) {
+                if (other.word !== memory.word && 
+                    other.word.includes(memory.word) && 
+                    other.word.length > memory.word.length) {
+                  isBasicConcept = false
+                  break
+                }
+              }
+            }
+            
+            if (isBasicConcept && !processedCues.has(memory.word)) {
+              conceptsToRecall.push(memory)
+              processedCues.add(memory.word)
+              if (conceptsToRecall.length >= 15) break // 增加到15个概念
+            }
+          }
+        }
+        
+        // 自动recall所有筛选出的概念的记忆内容，并去重
+        const recalledContents = []
+        const seenEngrams = new Set() // 用于去重
+        
+        for (const memory of conceptsToRecall) { // recall所有筛选出的概念
+          try {
+            const engrams = await cognition.recall(memory.word)
+            if (engrams && engrams.length > 0) {
+              // 过滤掉已经显示过的engram
+              const uniqueEngrams = engrams.filter(e => {
+                if (seenEngrams.has(e.content)) {
+                  return false
+                }
+                seenEngrams.add(e.content)
+                return true
+              })
+              
+              if (uniqueEngrams.length > 0) {
+                recalledContents.push({
+                  cue: memory.word,
+                  strength: memory.strength,
+                  type: memory.type || 'MEMORY',
+                  engrams: uniqueEngrams.slice(0, 3) // 每个概念最多显示3个不重复的记忆
+                })
+              }
+            }
+          } catch (error) {
+            logger.debug('Failed to recall memory for:', memory.word)
+          }
+        }
+        
+        // 显示recall的记忆内容
+        if (recalledContents.length > 0) {
+          // 分离核心记忆和上下文记忆
+          const coreRecalled = recalledContents.filter(r => r.type === 'CORE_MEMORY')
+          const contextRecalled = recalledContents.filter(r => r.type === 'CONTEXT_MEMORY')
+          
+          if (coreRecalled.length > 0) {
+            output += `\n### 📚 核心记忆内容：\n`
+            coreRecalled.forEach((recalled, index) => {
+              output += `\n**${index + 1}. ${recalled.cue}** [强度: ${recalled.strength.toFixed(2)}]\n`
+              recalled.engrams.forEach(engram => {
+                output += `   - ${engram.content}\n`
+              })
+            })
+          }
+          
+          if (contextRecalled.length > 0) {
+            output += `\n### 📖 上下文记忆：\n`
+            contextRecalled.forEach((recalled, index) => {
+              output += `\n**${index + 1}. ${recalled.cue}** [强度: ${recalled.strength.toFixed(2)}]\n`
+              recalled.engrams.forEach(engram => {
+                output += `   - ${engram.content}\n`
+              })
+            })
+          }
+          
+          output += `\n💡 所有mindmap中的概念记忆已加载，将全面影响你的思考和决策。\n`
+        } else if (!hasMemories) {
+          output += `\n📝 暂无记忆内容。\n`
+        }
+      }
       
       // 尝试激活程序性记忆
       try {

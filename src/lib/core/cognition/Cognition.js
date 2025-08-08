@@ -58,11 +58,12 @@ class Cognition {
   }
   
   /**
-   * 启动效应 - 预激活语义网络并返回 Mermaid 表示
-   * @returns {string} Mermaid mindmap 格式的字符串
+   * 启动效应 - 预激活语义网络并返回 Mermaid 表示（包含工作记忆）
+   * @param {boolean} includeWorkingMemory - 是否包含工作记忆（默认true）
+   * @returns {string|Object} Mermaid mindmap 格式的字符串或包含工作记忆的对象
    */
-  async prime() {
-    return this.memoryService.prime();
+  async prime(includeWorkingMemory = true) {
+    return this.memoryService.prime(null, includeWorkingMemory);
   }
   
   /**

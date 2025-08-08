@@ -24,9 +24,10 @@ class Semantic extends ImplicitMemory {
     try {
       console.log('[Semantic.remember] Processing engram:', engram.content);
       console.log('[Semantic.remember] Schema:', engram.schema);
+      console.log('[Semantic.remember] Strength:', engram.strength);
       
-      // schema 是 Mermaid 格式字符串，直接使用 MindService 的 remember 方法
-      await this.mindService.remember(engram.schema);
+      // 传递 schema 和 strength 给 MindService
+      await this.mindService.remember(engram.schema, 'global-semantic', engram.strength);
       
       console.log('[Semantic.remember] Successfully added to semantic network');
     } catch (error) {
@@ -46,13 +47,14 @@ class Semantic extends ImplicitMemory {
   }
 
   /**
-   * 启动效应 - 加载或创建语义网络并返回 Mermaid 表示
+   * 启动效应 - 加载或创建语义网络并返回 Mermaid 表示（包含工作记忆）
    * @param {string} semanticName - 语义网络名称（可选）
-   * @returns {string} Mermaid mindmap 格式的字符串
+   * @param {boolean} includeWorkingMemory - 是否包含工作记忆（默认true）
+   * @returns {string|Object} Mermaid mindmap 格式的字符串或包含工作记忆的对象
    */
-  async prime(semanticName) {
+  async prime(semanticName, includeWorkingMemory = true) {
     // 委托给MindService处理加载/创建逻辑
-    return await this.mindService.primeSemantic();
+    return await this.mindService.primeSemantic(semanticName || 'global-semantic', includeWorkingMemory);
   }
 
   /**
