@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cognition - 基于认知心理学的Agent记忆系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #0d1117 50%, #000000 100%);
+            overflow-x: hidden;
+            color: white;
+        }
+
+        /* 背景动画粒子 */
+        .particles {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(100, 200, 255, 0.3);
+            border-radius: 50%;
+            animation: float 10s ease-in-out infinite;
+            box-shadow: 0 0 10px rgba(100, 200, 255, 0.3);
+        }
+
+        @keyframes float {
+            0%, 100% { 
+                transform: translateY(100vh) translateX(0) scale(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            50% { 
+                transform: translateY(-10vh) translateX(100px) scale(1);
+                opacity: 0.8;
+            }
+            90% {
+                opacity: 1;
+            }
+        }
+
+        /* 生成多个粒子 */
+        .particle:nth-child(1) { left: 10%; animation-delay: 0s; animation-duration: 8s; }
+        .particle:nth-child(2) { left: 20%; animation-delay: 1s; animation-duration: 9s; }
+        .particle:nth-child(3) { left: 30%; animation-delay: 2s; animation-duration: 10s; }
+        .particle:nth-child(4) { left: 40%; animation-delay: 3s; animation-duration: 11s; }
+        .particle:nth-child(5) { left: 50%; animation-delay: 4s; animation-duration: 8s; }
+        .particle:nth-child(6) { left: 60%; animation-delay: 5s; animation-duration: 9s; }
+        .particle:nth-child(7) { left: 70%; animation-delay: 0.5s; animation-duration: 10s; }
+        .particle:nth-child(8) { left: 80%; animation-delay: 1.5s; animation-duration: 11s; }
+        .particle:nth-child(9) { left: 90%; animation-delay: 2.5s; animation-duration: 8s; }
+        .particle:nth-child(10) { left: 15%; animation-delay: 3.5s; animation-duration: 9s; }
+
+        /* 幻灯片容器 */
+        .slide-container {
+            position: relative;
+            z-index: 10;
+        }
+
+        .slide {
+            min-height: 100vh;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            opacity: 0;
+            transform: translateX(100px);
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .slide.active {
+            display: flex;
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .slide-content {
+            max-width: 1400px;
+            width: 100%;
+            text-align: center;
+            position: relative;
+        }
+
+        /* 标题样式 */
+        .slide-title {
+            font-size: 4.5rem;
+            font-weight: 900;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: glow 3s ease-in-out infinite alternate;
+            letter-spacing: -2px;
+            line-height: 1.1;
+        }
+
+        @keyframes glow {
+            from { 
+                filter: brightness(1) drop-shadow(0 0 20px rgba(96, 165, 250, 0.5));
+            }
+            to { 
+                filter: brightness(1.2) drop-shadow(0 0 40px rgba(167, 139, 250, 0.7));
+            }
+        }
+
+        .slide-subtitle {
+            font-size: 1.8rem;
+            color: #94a3b8;
+            margin-bottom: 50px;
+            font-weight: 300;
+            opacity: 0.9;
+        }
+
+        /* 封面页特殊样式 */
+        .cover-slide .slide-title {
+            font-size: 5rem;
+            margin-bottom: 20px;
+        }
+
+        .cover-slide .slide-subtitle {
+            font-size: 2rem;
+            margin-bottom: 60px;
+        }
+
+        .tech-badge {
+            display: inline-block;
+            padding: 12px 24px;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 50px;
+            margin: 10px;
+            color: #a5b4fc;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .tech-badge:hover {
+            background: rgba(99, 102, 241, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.3);
+        }
+
+        /* Demo 展示样式 */
+        .demo-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin: 50px 0;
+        }
+
+        .demo-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 40px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s ease;
+        }
+
+        .demo-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(100, 200, 255, 0.1), transparent);
+            transition: left 0.6s ease;
+        }
+
+        .demo-card:hover::before {
+            left: 100%;
+        }
+
+        .demo-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(100, 200, 255, 0.3);
+            box-shadow: 0 20px 40px rgba(100, 200, 255, 0.2);
+        }
+
+        .role-name {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #60a5fa;
+        }
+
+        .role-desc {
+            color: #cbd5e1;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        /* Engram 展示样式 */
+        .engram-display {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 16px;
+            padding: 30px;
+            margin: 40px auto;
+            max-width: 900px;
+            position: relative;
+        }
+
+        .engram-display::before {
+            content: 'Engram';
+            position: absolute;
+            top: -12px;
+            left: 30px;
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            color: white;
+            padding: 4px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            text-align: left;
+            position: relative;
+            overflow-x: auto;
+        }
+
+        .code-line {
+            color: #60a5fa;
+            font-size: 1rem;
+            line-height: 1.8;
+            margin: 5px 0;
+        }
+
+        .code-comment {
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .code-string {
+            color: #86efac;
+        }
+
+        .code-keyword {
+            color: #f472b6;
+            font-weight: 600;
+        }
+
+        .code-number {
+            color: #fbbf24;
+        }
+
+        /* 流程图样式 */
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 50px 0;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .flow-step {
+            background: rgba(99, 102, 241, 0.1);
+            border: 2px solid rgba(99, 102, 241, 0.3);
+            border-radius: 16px;
+            padding: 20px 30px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #c7d2fe;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .flow-step:hover {
+            background: rgba(99, 102, 241, 0.2);
+            transform: scale(1.05);
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4);
+        }
+
+        .flow-arrow {
+            color: #6366f1;
+            font-size: 2rem;
+            margin: 0 10px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; transform: translateX(0); }
+            50% { opacity: 1; transform: translateX(5px); }
+        }
+
+        /* 特性卡片 */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            margin: 50px 0;
+        }
+
+        .feature-card {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.05));
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 20px;
+            padding: 30px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .feature-card:hover::after {
+            opacity: 1;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            border-color: rgba(139, 92, 246, 0.5);
+            box-shadow: 0 20px 40px rgba(139, 92, 246, 0.3);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .feature-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #e0e7ff;
+        }
+
+        .feature-desc {
+            color: #94a3b8;
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+
+        /* 导航控制 */
+        .nav-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+            display: flex;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 30px;
+            padding: 8px 12px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .nav-btn {
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            color: #c7d2fe;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .nav-btn:hover {
+            background: rgba(139, 92, 246, 0.3);
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+        }
+
+        .slide-indicator {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .indicator-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: rgba(139, 92, 246, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .indicator-dot.active {
+            width: 18px;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #8b5cf6, #6366f1);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .slide-title {
+                font-size: 2.5rem;
+            }
+            .slide-subtitle {
+                font-size: 1.3rem;
+            }
+            .demo-container {
+                grid-template-columns: 1fr;
+            }
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+            .slide {
+                padding: 20px;
+            }
+        }
+
+        /* Prime 可视化 */
+        .mindmap-visual {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid rgba(34, 197, 94, 0.3);
+            border-radius: 20px;
+            padding: 40px;
+            margin: 40px auto;
+            max-width: 800px;
+            position: relative;
+        }
+
+        .mindmap-visual::before {
+            content: 'Semantic Network';
+            position: absolute;
+            top: -12px;
+            left: 30px;
+            background: linear-gradient(135deg, #22c55e, #06b6d4);
+            color: white;
+            padding: 4px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .mindmap-node {
+            display: inline-block;
+            padding: 8px 16px;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            border-radius: 20px;
+            margin: 5px;
+            color: #86efac;
+            transition: all 0.3s ease;
+        }
+
+        .mindmap-node:hover {
+            background: rgba(34, 197, 94, 0.2);
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景粒子效果 -->
+    <div class="particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+
+    <!-- 幻灯片容器 -->
+    <div class="slide-container">
+        
+        <!-- 第1页：标题页 -->
+        <div class="slide active cover-slide">
+            <div class="slide-content">
+                <h1 class="slide-title">基于认知心理学的Agent记忆系统</h1>
+                <p class="slide-subtitle">PromptX Cognition - 让AI拥有真正的记忆与思考能力</p>
+                
+                <div style="margin: 60px 0;">
+                    <span class="tech-badge">🧠 认知心理学</span>
+                    <span class="tech-badge">💾 持久化记忆</span>
+                    <span class="tech-badge">🌐 语义网络</span>
+                    <span class="tech-badge">💭 思维链</span>
+                </div>
+                
+                <div style="margin-top: 80px; color: #64748b;">
+                    <p style="font-size: 1.2rem;">deepractice.ai | 2025.01.09</p>
+                    <p style="margin-top: 10px; font-size: 1rem;">Speaker: Sean (姜山)</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第2页：Live Demo -->
+        <div class="slide">
+            <div class="slide-content">
+                <h2 class="slide-title">Live Demo：从空白到专家</h2>
+                <p class="slide-subtitle">记忆植入的魔法时刻</p>
+                
+                <div class="demo-container">
+                    <div class="demo-card">
+                        <div class="role-name">👤 Role: One</div>
+                        <div class="role-desc">
+                            <p><strong>初始状态：</strong>空白Agent</p>
+                            <p><strong>植入记忆：</strong>李晓雯 - 总经理助理</p>
+                            <p><strong>获得能力：</strong></p>
+                            <ul style="list-style: none; padding-left: 0; margin-top: 10px;">
+                                <li>✅ 7年高管助理经验</li>
+                                <li>✅ 战略项目管理能力</li>
+                                <li>✅ 跨文化沟通技能</li>
+                                <li>✅ 完整的职业记忆</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="demo-card">
+                        <div class="role-name">👤 Role: Two</div>
+                        <div class="role-desc">
+                            <p><strong>初始状态：</strong>空白Agent</p>
+                            <p><strong>植入记忆：</strong>张伟 - Java工程师</p>
+                            <p><strong>获得能力：</strong></p>
+                            <ul style="list-style: none; padding-left: 0; margin-top: 10px;">
+                                <li>✅ 5年Java开发经验</li>
+                                <li>✅ 微服务架构能力</li>
+                                <li>✅ 高并发系统优化</li>
+                                <li>✅ 完整的项目记忆</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flow-diagram">
+                    <div class="flow-step">空白Agent</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">Cognition.remember()</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">专业人格</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第3页：Engram设计 - 超压缩版 -->
+        <div class="slide">
+            <div class="slide-content">
+                <h2 class="slide-title" style="font-size: 2.2rem; margin-bottom: 10px;">Engram：AI的主动记忆编码</h2>
+                <p class="slide-subtitle" style="font-size: 1rem; margin-bottom: 15px;">⚡ AI自己生成Engram，不是系统！</p>
+                
+                <!-- AI编码过程图示 - 压缩版 -->
+                <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin: 15px 0;">
+                    <div style="text-align: center;">
+                        <div style="width: 70px; height: 70px; background: linear-gradient(135deg, #60a5fa, #a78bfa); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 5px;">
+                            <span style="font-size: 1.5rem;">🧠</span>
+                        </div>
+                        <p style="color: #cbd5e1; font-size: 0.75rem;">AI接收</p>
+                    </div>
+                    
+                    <div style="font-size: 1.3rem; color: #8b5cf6;">→</div>
+                    
+                    <div style="text-align: center;">
+                        <div style="width: 70px; height: 70px; background: linear-gradient(135deg, #a78bfa, #ec4899); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 5px;">
+                            <span style="font-size: 1.5rem;">⚙️</span>
+                        </div>
+                        <p style="color: #cbd5e1; font-size: 0.75rem;">主动编码</p>
+                    </div>
+                    
+                    <div style="font-size: 1.3rem; color: #8b5cf6;">→</div>
+                    
+                    <div style="text-align: center;">
+                        <div style="width: 70px; height: 70px; background: linear-gradient(135deg, #ec4899, #f472b6); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 5px;">
+                            <span style="font-size: 1.5rem;">💎</span>
+                        </div>
+                        <p style="color: #cbd5e1; font-size: 0.75rem;">生成Engram</p>
+                    </div>
+                </div>
+                
+                <!-- Engram双重表征可视化 - 压缩版 -->
+                <div style="max-width: 850px; margin: 15px auto;">
+                    <div style="background: rgba(139, 92, 246, 0.05); border: 2px solid rgba(139, 92, 246, 0.3); border-radius: 18px; padding: 18px; position: relative;">
+                        <div style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #8b5cf6, #ec4899); color: white; padding: 3px 14px; border-radius: 10px; font-weight: 600; font-size: 0.75rem;">
+                            Engram 记忆单元
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 5px;">
+                            <!-- Content部分 -->
+                            <div style="background: rgba(96, 165, 250, 0.1); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 10px; padding: 12px;">
+                                <h4 style="color: #60a5fa; margin-bottom: 6px; font-size: 0.85rem;">
+                                    📝 Content（情景记忆）
+                                </h4>
+                                <p style="color: #cbd5e1; line-height: 1.3; font-size: 0.75rem;">
+                                    "张伟是Java工程师，在美团工作"
+                                </p>
+                                <p style="color: #64748b; font-size: 0.65rem; margin-top: 6px;">
+                                    人类可读的自然语言
+                                </p>
+                            </div>
+                            
+                            <!-- Schema部分 -->
+                            <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 10px; padding: 12px;">
+                                <h4 style="color: #22c55e; margin-bottom: 6px; font-size: 0.85rem;">
+                                    🌐 Schema（语义记忆）
+                                </h4>
+                                <div style="color: #cbd5e1; line-height: 1.2; font-size: 0.7rem;">
+                                    <div>张伟</div>
+                                    <div style="padding-left: 10px;">├ 职业: Java工程师</div>
+                                    <div style="padding-left: 10px;">├ 公司: 美团</div>
+                                    <div style="padding-left: 10px;">└ 技能: Spring Cloud</div>
+                                </div>
+                                <p style="color: #64748b; font-size: 0.65rem; margin-top: 6px;">
+                                    机器可处理的知识结构
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <!-- 元信息 - 压缩版 -->
+                        <div style="display: flex; justify-content: space-around; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(139, 92, 246, 0.2);">
+                            <div style="text-align: center;">
+                                <span style="color: #fbbf24; font-size: 0.9rem;">⚡</span>
+                                <span style="color: #cbd5e1; margin-left: 4px; font-size: 0.7rem;">强度: 0.9</span>
+                            </div>
+                            <div style="text-align: center;">
+                                <span style="color: #f472b6; font-size: 0.9rem;">🏷️</span>
+                                <span style="color: #cbd5e1; margin-left: 4px; font-size: 0.7rem;">类型: ATOMIC</span>
+                            </div>
+                            <div style="text-align: center;">
+                                <span style="color: #60a5fa; font-size: 0.9rem;">⏰</span>
+                                <span style="color: #cbd5e1; margin-left: 4px; font-size: 0.7rem;">时间戳</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <p style="color: #94a3b8; font-size: 0.9rem; margin-top: 15px; text-align: center;">
+                    💡 双重表征实现人机共读：既保留人类理解，又构建机器认知
+                </p>
+            </div>
+        </div>
+
+        <!-- 第4页：记忆筛选 - 静态图形版 -->
+        <div class="slide">
+            <div class="slide-content">
+                <h2 class="slide-title" style="font-size: 2.2rem; margin-bottom: 10px;">Evaluator：记忆的第一道门槛</h2>
+                <p class="slide-subtitle" style="font-size: 1rem; margin-bottom: 15px;">不是所有信息都值得记住</p>
+                
+                <!-- 筛选流程静态图 -->
+                <div style="max-width: 800px; margin: 20px auto;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px;">
+                        <!-- 输入信息 -->
+                        <div style="flex: 1;">
+                            <div style="background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.2); 
+                                        border-radius: 12px; padding: 15px;">
+                                <div style="color: #a78bfa; font-size: 0.85rem; margin-bottom: 10px; font-weight: 600;">📥 输入信息流</div>
+                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    <div style="background: rgba(239, 68, 68, 0.1); padding: 5px 10px; border-radius: 6px; font-size: 0.7rem;">
+                                        <span style="color: #ef4444;">❌ 弱信号 (0.2)</span>
+                                    </div>
+                                    <div style="background: rgba(251, 191, 36, 0.1); padding: 5px 10px; border-radius: 6px; font-size: 0.7rem;">
+                                        <span style="color: #fbbf24;">⚠️ 中等 (0.5)</span>
+                                    </div>
+                                    <div style="background: rgba(34, 197, 94, 0.1); padding: 5px 10px; border-radius: 6px; font-size: 0.7rem;">
+                                        <span style="color: #22c55e;">✅ 强信号 (0.9)</span>
+                                    </div>
+                                    <div style="background: rgba(107, 114, 128, 0.1); padding: 5px 10px; border-radius: 6px; font-size: 0.7rem;">
+                                        <span style="color: #6b7280;">🔇 噪音</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 箭头 -->
+                        <div style="color: #8b5cf6; font-size: 1.5rem;">➜</div>
+                        
+                        <!-- 评估器 -->
+                        <div style="position: relative;">
+                            <div style="width: 100px; height: 100px; 
+                                        background: linear-gradient(135deg, #8b5cf6, #ec4899); 
+                                        border-radius: 50%; 
+                                        display: flex; align-items: center; justify-content: center;
+                                        box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);">
+                                <div style="text-align: center; color: white;">
+                                    <div style="font-size: 1.3rem;">🔍</div>
+                                    <div style="font-size: 0.65rem; margin-top: 3px;">Evaluator</div>
+                                    <div style="font-size: 0.55rem;">阈值: 0.3</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 箭头 -->
+                        <div style="color: #8b5cf6; font-size: 1.5rem;">➜</div>
+                        
+                        <!-- 输出结果 -->
+                        <div style="flex: 1;">
+                            <div style="background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.2); 
+                                        border-radius: 12px; padding: 15px;">
+                                <div style="color: #a78bfa; font-size: 0.85rem; margin-bottom: 10px; font-weight: 600;">📤 筛选结果</div>
+                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    <div style="background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3);
+                                                padding: 8px 10px; border-radius: 6px;">
+                                        <div style="color: #22c55e; font-size: 0.75rem; font-weight: 600;">✅ 通过筛选</div>
+                                        <div style="color: #10b981; font-size: 0.65rem; margin-top: 3px;">强度 ≥ 0.3 的有效信息</div>
+                                    </div>
+                                    <div style="background: rgba(107, 114, 128, 0.05); 
+                                                padding: 8px 10px; border-radius: 6px; opacity: 0.6;">
+                                        <div style="color: #6b7280; font-size: 0.75rem;">❌ 被过滤</div>
+                                        <div style="color: #9ca3af; font-size: 0.65rem; margin-top: 3px;">弱信号、噪音、重复</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 筛选规则 -->
+                <div style="display: flex; justify-content: center; gap: 15px; margin: 25px 0;">
+                    <div style="background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.3); 
+                                border-radius: 10px; padding: 10px 15px; text-align: center;">
+                        <div style="color: #a78bfa; font-size: 1.1rem;">📊</div>
+                        <div style="color: #cbd5e1; font-size: 0.7rem; margin-top: 5px;">强度评估</div>
+                        <div style="color: #64748b; font-size: 0.6rem;">strength ≥ 0.3</div>
+                    </div>
+                    <div style="background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.3); 
+                                border-radius: 10px; padding: 10px 15px; text-align: center;">
+                        <div style="color: #a78bfa; font-size: 1.1rem;">🎯</div>
+                        <div style="color: #cbd5e1; font-size: 0.7rem; margin-top: 5px;">质量检测</div>
+                        <div style="color: #64748b; font-size: 0.6rem;">!isNoise()</div>
+                    </div>
+                    <div style="background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.3); 
+                                border-radius: 10px; padding: 10px 15px; text-align: center;">
+                        <div style="color: #a78bfa; font-size: 1.1rem;">🔄</div>
+                        <div style="color: #cbd5e1; font-size: 0.7rem; margin-top: 5px;">去重机制</div>
+                        <div style="color: #64748b; font-size: 0.6rem;">!isDuplicate()</div>
+                    </div>
+                </div>
+                
+                <p style="color: #64748b; font-size: 0.95rem; margin-top: 15px; text-align: center;">
+                    💡 认知心理学原理：注意力过滤器，"左耳进右耳出"现象
+                </p>
+            </div>
+        </div>
+
+        <!-- 第5页：语义网络巩固 - 可视化版 -->
+        <div class="slide">
+            <div class="slide-content">
+                <h2 class="slide-title" style="font-size: 2.2rem; margin-bottom: 10px;">Semantic Network：构建知识图谱</h2>
+                <p class="slide-subtitle" style="font-size: 1rem; margin-bottom: 15px;">从Schema到语义网络的智能整合</p>
+                
+                <!-- Schema到语义网络的转换过程 -->
+                <div style="display: flex; align-items: center; justify-content: space-between; max-width: 900px; margin: 20px auto; gap: 30px;">
+                    <!-- 左侧：Engram Schema -->
+                    <div style="flex: 0 0 250px;">
+                        <div style="background: rgba(139, 92, 246, 0.1); border: 2px solid rgba(139, 92, 246, 0.3); 
+                                    border-radius: 12px; padding: 15px;">
+                            <div style="color: #a78bfa; font-size: 0.85rem; margin-bottom: 10px; font-weight: 600;">
+                                📝 Engram Schema
+                            </div>
+                            <div style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; padding: 10px; 
+                                        font-family: monospace; font-size: 0.65rem; color: #cbd5e1;">
+                                <div>张伟</div>
+                                <div style="padding-left: 10px;">├ 职业: Java工程师</div>
+                                <div style="padding-left: 10px;">├ 公司: 美团</div>
+                                <div style="padding-left: 10px;">├ 技能: Spring</div>
+                                <div style="padding-left: 10px;">└ 经验: 5年</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 中间：箭头 -->
+                    <div style="flex: 0 0 auto;">
+                        <div style="color: #8b5cf6; font-size: 1.5rem;">➜</div>
+                        <div style="color: #64748b; font-size: 0.65rem; margin-top: 5px;">整合</div>
+                    </div>
+                    
+                    <!-- 右侧：语义网络可视化 -->
+                    <div style="flex: 1; position: relative; height: 280px;">
+                        <svg width="100%" height="100%" viewBox="0 0 400 280" style="background: rgba(0, 0, 0, 0.2); border-radius: 12px;">
+                            <!-- 连接线 -->
+                            <line x1="200" y1="140" x2="100" y2="60" stroke="#8b5cf6" stroke-width="2" opacity="0.5"/>
+                            <line x1="200" y1="140" x2="300" y2="60" stroke="#8b5cf6" stroke-width="2" opacity="0.5"/>
+                            <line x1="200" y1="140" x2="100" y2="220" stroke="#8b5cf6" stroke-width="2" opacity="0.5"/>
+                            <line x1="200" y1="140" x2="300" y2="220" stroke="#8b5cf6" stroke-width="2" opacity="0.5"/>
+                            <line x1="100" y1="60" x2="50" y2="30" stroke="#60a5fa" stroke-width="1" opacity="0.3"/>
+                            <line x1="300" y1="60" x2="350" y2="30" stroke="#60a5fa" stroke-width="1" opacity="0.3"/>
+                            <line x1="300" y1="60" x2="350" y2="90" stroke="#60a5fa" stroke-width="1" opacity="0.3"/>
+                            
+                            <!-- 中心节点：张伟 -->
+                            <circle cx="200" cy="140" r="25" fill="#8b5cf6" opacity="0.9"/>
+                            <text x="200" y="145" text-anchor="middle" fill="white" font-size="12" font-weight="600">张伟</text>
+                            
+                            <!-- 职业节点 -->
+                            <circle cx="100" cy="60" r="20" fill="#60a5fa" opacity="0.8"/>
+                            <text x="100" y="65" text-anchor="middle" fill="white" font-size="10">Java工程师</text>
+                            
+                            <!-- 公司节点 -->
+                            <circle cx="300" cy="60" r="20" fill="#22c55e" opacity="0.8"/>
+                            <text x="300" y="65" text-anchor="middle" fill="white" font-size="10">美团</text>
+                            
+                            <!-- 技能节点 -->
+                            <circle cx="100" cy="220" r="20" fill="#fbbf24" opacity="0.8"/>
+                            <text x="100" y="225" text-anchor="middle" fill="white" font-size="10">Spring</text>
+                            
+                            <!-- 经验节点 -->
+                            <circle cx="300" cy="220" r="20" fill="#ec4899" opacity="0.8"/>
+                            <text x="300" y="225" text-anchor="middle" fill="white" font-size="10">5年经验</text>
+                            
+                            <!-- 关联节点（次级） -->
+                            <circle cx="50" cy="30" r="12" fill="#94a3b8" opacity="0.5"/>
+                            <text x="50" y="33" text-anchor="middle" fill="white" font-size="8">后端</text>
+                            
+                            <circle cx="350" cy="30" r="12" fill="#94a3b8" opacity="0.5"/>
+                            <text x="350" y="33" text-anchor="middle" fill="white" font-size="8">互联网</text>
+                            
+                            <circle cx="350" cy="90" r="12" fill="#94a3b8" opacity="0.5"/>
+                            <text x="350" y="93" text-anchor="middle" fill="white" font-size="8">外卖</text>
+                        </svg>
+                        
+                        <!-- 网络特征标注 -->
+                        <div style="position: absolute; bottom: 10px; right: 10px; 
+                                    background: rgba(0, 0, 0, 0.6); padding: 5px 10px; 
+                                    border-radius: 6px; font-size: 0.6rem; color: #cbd5e1;">
+                            🌐 语义网络：知识关联图谱
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 语义网络特性 -->
+                <div style="display: flex; justify-content: center; gap: 15px; margin: 25px 0;">
+                    <div style="background: rgba(96, 165, 250, 0.1); border: 1px solid rgba(96, 165, 250, 0.3); 
+                                border-radius: 10px; padding: 10px 15px; text-align: center;">
+                        <div style="color: #60a5fa; font-size: 1rem;">🔗</div>
+                        <div style="color: #cbd5e1; font-size: 0.7rem; margin-top: 5px;">概念关联</div>
+                        <div style="color: #64748b; font-size: 0.6rem;">自动建立连接</div>
+                    </div>
+                    <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); 
+                                border-radius: 10px; padding: 10px 15px; text-align: center;">
+                        <div style="color: #22c55e; font-size: 1rem;">⚡</div>
+                        <div style="color: #cbd5e1; font-size: 0.7rem; margin-top: 5px;">激活扩散</div>
+                        <div style="color: #64748b; font-size: 0.6rem;">相关概念联动</div>
+                    </div>
+                    <div style="background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); 
+                                border-radius: 10px; padding: 10px 15px; text-align: center;">
+                        <div style="color: #a78bfa; font-size: 1rem;">🧠</div>
+                        <div style="color: #cbd5e1; font-size: 0.7rem; margin-top: 5px;">知识融合</div>
+                        <div style="color: #64748b; font-size: 0.6rem;">新旧知识整合</div>
+                    </div>
+                </div>
+                
+                <p style="color: #64748b; font-size: 0.95rem; margin-top: 15px; text-align: center;">
+                    💡 语义网络让AI理解概念之间的关系，形成真正的知识体系
+                </p>
+            </div>
+        </div>
+
+        <!-- 第6页：长期记忆存储 -->
+        <div class="slide">
+            <div class="slide-content">
+                <h2 class="slide-title" style="font-size: 2.2rem; margin-bottom: 10px;">LongTerm Memory：永久记忆存储</h2>
+                <p class="slide-subtitle" style="font-size: 1rem; margin-bottom: 15px;">完整保存每一个记忆细节，支持精确回忆</p>
+                
+                <!-- 长期记忆存储可视化 -->
+                <div style="max-width: 900px; margin: 20px auto;">
+                    <div style="display: flex; gap: 30px; align-items: stretch;">
+                        <!-- 左侧：Key-Value存储结构 -->
+                        <div style="flex: 1;">
+                            <div style="background: rgba(59, 130, 246, 0.05); border: 2px solid rgba(59, 130, 246, 0.3); 
+                                        border-radius: 15px; padding: 20px; height: 100%;">
+                                <div style="color: #3b82f6; font-size: 0.9rem; margin-bottom: 15px; font-weight: 600;">
+                                    🔑 Key-Value 存储结构
+                                </div>
+                                
+                                <!-- 记忆条目展示 - 强调多KEY -->
+                                <div style="display: flex; flex-direction: column; gap: 10px;">
+                                    <div style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; padding: 10px; position: relative;">
+                                        <div style="position: absolute; top: -8px; left: 10px; display: flex; gap: 5px;">
+                                            <span style="background: #8b5cf6; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.55rem; font-weight: 600;">
+                                                KEY: "张伟"
+                                            </span>
+                                            <span style="background: #22c55e; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.55rem; font-weight: 600;">
+                                                KEY: "美团"
+                                            </span>
+                                            <span style="background: #60a5fa; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.55rem; font-weight: 600;">
+                                                KEY: "入职"
+                                            </span>
+                                        </div>
+                                        <div style="margin-top: 8px;">
+                                            <div style="color: #cbd5e1; font-size: 0.65rem; line-height: 1.4;">
+                                                <span style="color: #fbbf24;">→</span> content: "张伟入职美团"<br>
+                                                <span style="color: #fbbf24;">→</span> schema: <span style="background: rgba(139, 92, 246, 0.2); padding: 1px 4px; border-radius: 3px;">张伟</span>→<span style="background: rgba(34, 197, 94, 0.2); padding: 1px 4px; border-radius: 3px;">美团</span>→<span style="background: rgba(96, 165, 250, 0.2); padding: 1px 4px; border-radius: 3px;">入职</span><br>
+                                                <span style="color: #fbbf24;">→</span> strength: 0.95
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; padding: 10px; position: relative;">
+                                        <div style="position: absolute; top: -8px; left: 10px; display: flex; gap: 5px;">
+                                            <span style="background: #ec4899; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.55rem; font-weight: 600;">
+                                                KEY: "项目"
+                                            </span>
+                                            <span style="background: #fbbf24; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.55rem; font-weight: 600;">
+                                                KEY: "订单系统"
+                                            </span>
+                                            <span style="background: #a78bfa; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.55rem; font-weight: 600;">
+                                                KEY: "微服务"
+                                            </span>
+                                        </div>
+                                        <div style="margin-top: 8px;">
+                                            <div style="color: #cbd5e1; font-size: 0.65rem; line-height: 1.4;">
+                                                <span style="color: #22c55e;">→</span> content: "开发订单系统"<br>
+                                                <span style="color: #22c55e;">→</span> schema: <span style="background: rgba(236, 72, 153, 0.2); padding: 1px 4px; border-radius: 3px;">项目</span>→<span style="background: rgba(251, 191, 36, 0.2); padding: 1px 4px; border-radius: 3px;">订单系统</span>→<span style="background: rgba(167, 139, 250, 0.2); padding: 1px 4px; border-radius: 3px;">微服务</span><br>
+                                                <span style="color: #22c55e;">→</span> strength: 0.87
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; padding: 10px; position: relative;">
+                                        <div style="position: absolute; top: -8px; left: 10px; display: flex; gap: 5px;">
+                                            <span style="background: #06b6d4; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.55rem; font-weight: 600;">
+                                                KEY: "技能"
+                                            </span>
+                                            <span style="background: #10b981; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.55rem; font-weight: 600;">
+                                                KEY: "Spring"
+                                            </span>
+                                            <span style="background: #a78bfa; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.55rem; font-weight: 600;">
+                                                KEY: "微服务"
+                                            </span>
+                                        </div>
+                                        <div style="margin-top: 8px;">
+                                            <div style="color: #cbd5e1; font-size: 0.65rem; line-height: 1.4;">
+                                                <span style="color: #60a5fa;">→</span> content: "Spring Cloud技术栈"<br>
+                                                <span style="color: #60a5fa;">→</span> schema: <span style="background: rgba(6, 182, 212, 0.2); padding: 1px 4px; border-radius: 3px;">技能</span>→<span style="background: rgba(16, 185, 129, 0.2); padding: 1px 4px; border-radius: 3px;">Spring</span>→<span style="background: rgba(167, 139, 250, 0.2); padding: 1px 4px; border-radius: 3px;">微服务</span><br>
+                                                <span style="color: #60a5fa;">→</span> strength: 0.92
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 索引说明 -->
+                                <div style="background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); 
+                                            border-radius: 8px; padding: 10px; margin-top: 15px;">
+                                    <div style="color: #a78bfa; font-size: 0.7rem; margin-bottom: 5px;">
+                                        🔍 多KEY索引机制
+                                    </div>
+                                    <div style="color: #cbd5e1; font-size: 0.6rem; line-height: 1.3;">
+                                        <strong>一个Engram → 多个Keys</strong><br>
+                                        Schema每个节点都成为独立的Key<br>
+                                        例：搜索"微服务"能找到所有相关记忆
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 右侧：特性说明 -->
+                        <div style="flex: 1;">
+                            <div style="background: rgba(34, 197, 94, 0.05); border: 2px solid rgba(34, 197, 94, 0.3); 
+                                        border-radius: 15px; padding: 20px; height: 100%;">
+                                <div style="color: #22c55e; font-size: 0.9rem; margin-bottom: 15px; font-weight: 600;">
+                                    ✨ 核心特性
+                                </div>
+                                
+                                <div style="display: flex; flex-direction: column; gap: 12px;">
+                                    <div style="display: flex; align-items: start; gap: 10px;">
+                                        <span style="color: #fbbf24; font-size: 1rem;">📝</span>
+                                        <div>
+                                            <div style="color: #cbd5e1; font-size: 0.75rem; font-weight: 600;">完整性保存</div>
+                                            <div style="color: #64748b; font-size: 0.65rem; margin-top: 2px;">
+                                                原封不动保存Content和Schema
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div style="display: flex; align-items: start; gap: 10px;">
+                                        <span style="color: #60a5fa; font-size: 1rem;">⏰</span>
+                                        <div>
+                                            <div style="color: #cbd5e1; font-size: 0.75rem; font-weight: 600;">时序记录</div>
+                                            <div style="color: #64748b; font-size: 0.65rem; margin-top: 2px;">
+                                                精确的时间戳，支持时序回溯
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div style="display: flex; align-items: start; gap: 10px;">
+                                        <span style="color: #a78bfa; font-size: 1rem;">🔍</span>
+                                        <div>
+                                            <div style="color: #cbd5e1; font-size: 0.75rem; font-weight: 600;">精确检索</div>
+                                            <div style="color: #64748b; font-size: 0.65rem; margin-top: 2px;">
+                                                基于内容的准确匹配
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div style="display: flex; align-items: start; gap: 10px;">
+                                        <span style="color: #22c55e; font-size: 1rem;">♾️</span>
+                                        <div>
+                                            <div style="color: #cbd5e1; font-size: 0.75rem; font-weight: 600;">永久持久化</div>
+                                            <div style="color: #64748b; font-size: 0.65rem; margin-top: 2px;">
+                                                跨会话保持，永不丢失
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 底部说明 -->
+                <div style="display: flex; justify-content: center; gap: 20px; margin: 25px 0;">
+                    <div style="background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.3); 
+                                border-radius: 10px; padding: 10px 20px; text-align: center;">
+                        <div style="color: #a78bfa; font-size: 0.8rem;">📚 容量</div>
+                        <div style="color: #cbd5e1; font-size: 0.65rem; margin-top: 3px;">10K+ Engrams</div>
+                    </div>
+                    <div style="background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.3); 
+                                border-radius: 10px; padding: 10px 20px; text-align: center;">
+                        <div style="color: #a78bfa; font-size: 0.8rem;">⚡ 性能</div>
+                        <div style="color: #cbd5e1; font-size: 0.65rem; margin-top: 3px;">&lt; 10ms 写入</div>
+                    </div>
+                    <div style="background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.3); 
+                                border-radius: 10px; padding: 10px 20px; text-align: center;">
+                        <div style="color: #a78bfa; font-size: 0.8rem;">🔒 可靠性</div>
+                        <div style="color: #cbd5e1; font-size: 0.65rem; margin-top: 3px;">100% 持久化</div>
+                    </div>
+                </div>
+                
+                <p style="color: #64748b; font-size: 0.95rem; margin-top: 15px; text-align: center;">
+                    💡 长期记忆就像人类的海马体，每个细节都被永久保存
+                </p>
+            </div>
+        </div>
+
+        <!-- 第7页：完整架构汇总 -->
+        <div class="slide">
+            <div class="slide-content">
+                <h2 class="slide-title" style="font-size: 2.2rem; margin-bottom: 10px;">Cognition完整架构</h2>
+                <p class="slide-subtitle" style="font-size: 1rem; margin-bottom: 15px;">基于认知心理学的分层记忆处理系统</p>
+                
+                <!-- 放大的架构图 - 横向布局 -->
+                <div style="max-width: 1000px; margin: 25px auto; position: relative;">
+                    <div style="display: flex; gap: 30px;">
+                        <!-- 左侧：主流程 -->
+                        <div style="flex: 2;">
+                            <!-- 输入+编码 合并 -->
+                            <div style="background: rgba(139, 92, 246, 0.1); border: 2px solid rgba(139, 92, 246, 0.3); 
+                                        border-radius: 15px; padding: 20px; margin-bottom: 20px;">
+                                <div style="display: flex; align-items: center; gap: 15px;">
+                                    <div style="flex: 1;">
+                                        <div style="color: #60a5fa; font-size: 1rem; font-weight: 600;">📥 输入</div>
+                                        <div style="color: #64748b; font-size: 0.75rem; margin-top: 5px;">信息流入</div>
+                                    </div>
+                                    <span style="color: #8b5cf6; font-size: 1.5rem;">→</span>
+                                    <div style="flex: 2;">
+                                        <div style="color: #a78bfa; font-size: 1rem; font-weight: 600;">🧠 Engram编码</div>
+                                        <div style="display: flex; gap: 12px; margin-top: 8px;">
+                                            <span style="color: #cbd5e1; font-size: 0.75rem; background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 5px;">Content</span>
+                                            <span style="color: #cbd5e1; font-size: 0.75rem; background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 5px;">Schema</span>
+                                            <span style="color: #cbd5e1; font-size: 0.75rem; background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 5px;">Strength</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 筛选层 -->
+                            <div style="background: rgba(239, 68, 68, 0.05); border: 2px solid rgba(239, 68, 68, 0.3); 
+                                        border-radius: 15px; padding: 18px; margin-bottom: 20px; text-align: center;">
+                                <div style="color: #ef4444; font-size: 1rem; font-weight: 600;">
+                                    🔍 Evaluator筛选
+                                </div>
+                                <div style="color: #cbd5e1; font-size: 0.75rem; margin-top: 8px;">
+                                    强度≥0.3 | 质量检测 | 去重机制
+                                </div>
+                            </div>
+                            
+                            <!-- 双轨存储 -->
+                            <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                                <div style="flex: 1; background: rgba(34, 197, 94, 0.05); border: 2px solid rgba(34, 197, 94, 0.3); 
+                                            border-radius: 15px; padding: 18px;">
+                                    <div style="color: #22c55e; font-size: 0.9rem; font-weight: 600; text-align: center;">
+                                        🌐 语义网络
+                                    </div>
+                                    <div style="color: #cbd5e1; font-size: 0.7rem; text-align: center; margin-top: 8px; line-height: 1.4;">
+                                        知识图谱<br>概念关联<br>激活扩散
+                                    </div>
+                                </div>
+                                
+                                <div style="flex: 1; background: rgba(59, 130, 246, 0.05); border: 2px solid rgba(59, 130, 246, 0.3); 
+                                            border-radius: 15px; padding: 18px;">
+                                    <div style="color: #3b82f6; font-size: 0.9rem; font-weight: 600; text-align: center;">
+                                        💾 长期记忆
+                                    </div>
+                                    <div style="color: #cbd5e1; font-size: 0.7rem; text-align: center; margin-top: 8px; line-height: 1.4;">
+                                        完整存储<br>多Key索引<br>永久持久化
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Recall检索 -->
+                            <div style="background: rgba(251, 191, 36, 0.05); border: 2px solid rgba(251, 191, 36, 0.3); 
+                                        border-radius: 15px; padding: 18px; text-align: center;">
+                                <div style="color: #fbbf24; font-size: 1rem; font-weight: 600;">
+                                    📚 Recall检索
+                                </div>
+                                <div style="color: #cbd5e1; font-size: 0.75rem; margin-top: 8px;">
+                                    精确回忆 | 联想激活 | 模式匹配
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 中间：连接线 -->
+                        <div style="flex: 0 0 auto; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 10px;">
+                            <div style="height: 120px;"></div>
+                            <div style="color: #8b5cf6; font-size: 1.8rem;">←</div>
+                            <div style="color: #64748b; font-size: 0.8rem; writing-mode: vertical-rl; margin: 10px 0;">Prime激活</div>
+                            <div style="height: 120px;"></div>
+                        </div>
+                        
+                        <!-- 右侧：Prime机制 -->
+                        <div style="flex: 1;">
+                            <div style="background: rgba(236, 72, 153, 0.05); border: 2px solid rgba(236, 72, 153, 0.3); 
+                                        border-radius: 18px; padding: 25px; height: 100%;">
+                                <div style="color: #ec4899; font-size: 1.1rem; font-weight: 600; text-align: center; margin-bottom: 20px;">
+                                    ⚡ Prime机制
+                                </div>
+                                
+                                <div style="background: rgba(0, 0, 0, 0.3); border-radius: 10px; padding: 15px; margin-bottom: 15px;">
+                                    <div style="color: #fbbf24; font-size: 0.85rem; margin-bottom: 8px; font-weight: 600;">🎯 启动效应</div>
+                                    <div style="color: #cbd5e1; font-size: 0.7rem; line-height: 1.5;">
+                                        预加载高权重记忆<br>
+                                        激活语义网络<br>
+                                        构建认知上下文
+                                    </div>
+                                </div>
+                                
+                                <div style="background: rgba(0, 0, 0, 0.3); border-radius: 10px; padding: 15px; margin-bottom: 15px;">
+                                    <div style="color: #60a5fa; font-size: 0.85rem; margin-bottom: 8px; font-weight: 600;">🧠 工作记忆</div>
+                                    <div style="color: #cbd5e1; font-size: 0.7rem; line-height: 1.5;">
+                                        当前任务上下文<br>
+                                        热点数据缓存<br>
+                                        快速响应准备
+                                    </div>
+                                </div>
+                                
+                                <div style="background: rgba(0, 0, 0, 0.3); border-radius: 10px; padding: 15px;">
+                                    <div style="color: #22c55e; font-size: 0.85rem; margin-bottom: 8px; font-weight: 600;">📊 Mindmap</div>
+                                    <div style="color: #cbd5e1; font-size: 0.7rem; line-height: 1.5;">
+                                        知识结构可视化<br>
+                                        概念关联展示<br>
+                                        认知地图呈现
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第8页：总结 -->
+        <div class="slide">
+            <div class="slide-content">
+                <h2 class="slide-title">让AI真正"认知"</h2>
+                <p class="slide-subtitle">不是存储工具，是认知系统</p>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin: 50px 0;">
+                    <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 20px; padding: 30px;">
+                        <h3 style="font-size: 1.5rem; color: #22c55e; margin-bottom: 15px;">✅ 核心价值</h3>
+                        <ul style="color: #cbd5e1; line-height: 1.8; list-style: none;">
+                            <li>🧠 真正的认知架构</li>
+                            <li>🔄 持续学习能力</li>
+                            <li>🌐 知识网络构建</li>
+                            <li>🎯 可解释的推理</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 20px; padding: 30px;">
+                        <h3 style="font-size: 1.5rem; color: #3b82f6; margin-bottom: 15px;">🚀 应用场景</h3>
+                        <ul style="color: #cbd5e1; line-height: 1.8; list-style: none;">
+                            <li>👤 个人AI助手</li>
+                            <li>🏢 企业知识管理</li>
+                            <li>📚 智能教育系统</li>
+                            <li>🔬 研究助手</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 20px; padding: 30px;">
+                        <h3 style="font-size: 1.5rem; color: #a855f7; margin-bottom: 15px;">🌟 未来展望</h3>
+                        <ul style="color: #cbd5e1; line-height: 1.8; list-style: none;">
+                            <li>🎨 多模态记忆</li>
+                            <li>🤝 群体认知</li>
+                            <li>⏱️ 时序推理</li>
+                            <li>🧬 认知进化</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <p style="margin-top: 60px; font-size: 1.3rem; color: #60a5fa;">
+                    <strong>🔗 GitHub: github.com/Deepractice/PromptX</strong><br>
+                    <span style="color: #94a3b8;">⭐ 让我们一起推动AI认知革命</span>
+                </p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 导航控制 -->
+    <div class="nav-controls">
+        <button class="nav-btn" id="prevBtn">‹</button>
+        <div class="slide-indicator">
+            <div class="indicator-dot active" data-slide="0"></div>
+            <div class="indicator-dot" data-slide="1"></div>
+            <div class="indicator-dot" data-slide="2"></div>
+            <div class="indicator-dot" data-slide="3"></div>
+            <div class="indicator-dot" data-slide="4"></div>
+            <div class="indicator-dot" data-slide="5"></div>
+            <div class="indicator-dot" data-slide="6"></div>
+            <div class="indicator-dot" data-slide="7"></div>
+        </div>
+        <button class="nav-btn" id="nextBtn">›</button>
+    </div>
+
+    <script>
+        // 幻灯片导航逻辑
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const indicators = document.querySelectorAll('.indicator-dot');
+        const totalSlides = slides.length;
+
+        function showSlide(index) {
+            // 隐藏所有幻灯片
+            slides.forEach(slide => {
+                slide.classList.remove('active');
+            });
+            
+            // 更新指示器
+            indicators.forEach(indicator => {
+                indicator.classList.remove('active');
+            });
+            
+            // 显示当前幻灯片
+            slides[index].classList.add('active');
+            indicators[index].classList.add('active');
+            
+            currentSlide = index;
+        }
+
+        function nextSlide() {
+            const next = (currentSlide + 1) % totalSlides;
+            showSlide(next);
+        }
+
+        function prevSlide() {
+            const prev = (currentSlide - 1 + totalSlides) % totalSlides;
+            showSlide(prev);
+        }
+
+        // 事件监听
+        document.getElementById('nextBtn').addEventListener('click', nextSlide);
+        document.getElementById('prevBtn').addEventListener('click', prevSlide);
+
+        // 指示器点击
+        indicators.forEach((indicator, index) => {
+            indicator.addEventListener('click', () => {
+                showSlide(index);
+            });
+        });
+
+        // 键盘导航
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                e.preventDefault();
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                prevSlide();
+            } else if (e.key === 'Escape') {
+                // 回到第一页
+                showSlide(0);
+            } else if (e.key >= '1' && e.key <= '9') {
+                // 数字键快速跳转
+                const slideIndex = parseInt(e.key) - 1;
+                if (slideIndex < totalSlides) {
+                    showSlide(slideIndex);
+                }
+            }
+        });
+
+        // 触摸滑动支持（移动端）
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        });
+
+        document.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        });
+
+        function handleSwipe() {
+            if (touchEndX < touchStartX - 50) {
+                nextSlide(); // 向左滑动
+            }
+            if (touchEndX > touchStartX + 50) {
+                prevSlide(); // 向右滑动
+            }
+        }
+
+        // 鼠标移动视差效果
+        document.addEventListener('mousemove', function(e) {
+            const mouseX = e.clientX / window.innerWidth;
+            const mouseY = e.clientY / window.innerHeight;
+            
+            const particles = document.querySelectorAll('.particle');
+            particles.forEach((particle, index) => {
+                const speed = (index + 1) * 0.5;
+                const x = (mouseX - 0.5) * speed * 20;
+                const y = (mouseY - 0.5) * speed * 20;
+                particle.style.transform = `translate(${x}px, ${y}px)`;
+            });
+        });
+
+        // 自动播放（可选）
+        let autoPlayInterval = null;
+        function startAutoPlay() {
+            autoPlayInterval = setInterval(nextSlide, 5000); // 5秒切换
+        }
+
+        function stopAutoPlay() {
+            if (autoPlayInterval) {
+                clearInterval(autoPlayInterval);
+                autoPlayInterval = null;
+            }
+        }
+
+        // 鼠标悬停时停止自动播放
+        document.querySelector('.slide-container').addEventListener('mouseenter', stopAutoPlay);
+        document.querySelector('.slide-container').addEventListener('mouseleave', () => {
+            // 可以在这里重新开始自动播放
+            // startAutoPlay();
+        });
+
+        // 添加加载动画
+        window.addEventListener('load', () => {
+            document.body.style.opacity = '0';
+            setTimeout(() => {
+                document.body.style.transition = 'opacity 1s ease';
+                document.body.style.opacity = '1';
+            }, 100);
+        });
+
+        // 打印当前页码（方便演讲）
+        console.log(`
+        ========================================
+        Cognition Presentation Controls:
+        ----------------------------------------
+        → / Space : Next slide
+        ← : Previous slide
+        ESC : Back to first slide
+        1-9 : Jump to slide N
+        ========================================
+        `);
+    </script>
+</body>
+</html>
