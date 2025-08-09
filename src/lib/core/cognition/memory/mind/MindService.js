@@ -265,9 +265,8 @@ class MindService {
       
       // 递归添加节点
       const addCue = (cue, indent) => {
-        // 添加 strength 信息 (如果存在)
-        const strengthInfo = cue.strength !== undefined ? ` [${cue.strength.toFixed(2)}]` : '';
-        lines.push(`${' '.repeat(indent)}${cue.word}${strengthInfo}`);
+        // 不显示 strength 信息，只显示节点名称（适合演示）
+        lines.push(`${' '.repeat(indent)}${cue.word}`);
         cue.getConnections().forEach(childWord => {
           const childCue = cueMap.get(childWord);
           if (childCue) {
