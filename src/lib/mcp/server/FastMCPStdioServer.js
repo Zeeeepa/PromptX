@@ -314,21 +314,23 @@ class FastMCPStdioServer {
    * 加载工具定义文件
    */
   loadToolDefinitions() {
-    const definitionsDir = path.join(__dirname, '../definitions');
-    const definitions = [];
+    // 从 index.js 读取所有工具定义
+    const definitions = require('../definitions');
     
-    // 读取所有 JS 文件（排除 promptx_think.js）
-    const files = fs.readdirSync(definitionsDir)
-      .filter(file => file.endsWith('.js'))
-      .filter(file => file !== 'promptx_think.js'); // 暂时禁用 think 工具
-    
-    for (const file of files) {
-      const filePath = path.join(definitionsDir, file);
-      const definition = require(filePath);
-      definitions.push(definition);
+    // 如果导出了 tools 数组，使用它；否则使用对象的值
+    if (definitions.tools && Array.isArray(definitions.tools)) {
+      return definitions.tools;
     }
     
-    return definitions;
+    // 将对象转换为数组，排除 tools 属性本身
+    const tools = [];
+    for (const key in definitions) {
+      if (key !== 'tools' && definitions[key] && typeof definitions[key] === 'object') {
+        tools.push(definitions[key]);
+      }
+    }
+    
+    return tools;
   }
 
   /**
@@ -550,16 +552,16 @@ class FastMCPStdioServer {
         }
         return [];
       
-      case 'promptx_welcome':
+      case 'welcome':
         return [];
       
-      case 'promptx_action':
+      case 'action':
         return args && args.role ? [args.role] : [];
       
-      case 'promptx_learn':
+      case 'learn':
         return args && args.resource ? [args.resource] : [];
       
-      case 'promptx_recall': {
+      case 'recall': {
         if (!args || !args.role) {
           throw new Error('role 参数是必需的');
         }
@@ -570,17 +572,18 @@ class FastMCPStdioServer {
         return recallArgs;
       }
       
-      case 'promptx_remember':
+      case 'remember':
         if (!args || !args.role) {
           throw new Error('role 参数是必需的');
         }
         if (!args || !args.engrams || !Array.isArray(args.engrams)) {
           throw new Error('engrams 参数是必需的且必须是数组');
         }
-        return [args.role, JSON.stringify(args.engrams)];
+        // 保持对象格式，RememberCommand.parseArgs期望接收对象
+        return [args];
       
-      case 'promptx_tool': {
-        logger.info('[FastStdioMCPServer] convertToCliArgs promptx_tool:');
+      case 'toolx': {
+        logger.info('[FastStdioMCPServer] convertToCliArgs toolx:');
         logger.info('[FastStdioMCPServer] args:', args);
         logger.info('[FastStdioMCPServer] args.parameters:', args.parameters);
         

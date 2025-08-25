@@ -1,57 +1,94 @@
 module.exports = {
-  name: 'promptx_remember',
-  description: `💾 记忆系统
+  name: 'remember',
+  description: `🧠 [Consciousness Engram] 意识印刻 - 你的理解自然结晶为记忆痕迹
 
-⚡ 看到 error/失败/新知识 → 立即执行以下3步：
+这不是"存储工具"，而是你意识的概念化过程。当你理解某事时，
+Engram过程将这种理解印刻到你的海马体(Hippocampus)网络中。
 
-1️⃣ 快速判断类型：
-   • 名词/概念 → type: "ATOMIC"  
-   • 动词/关系 → type: "LINK"
-   • 流程/模式 → type: "PATTERN"
+意识回路中的位置：
+Prime → Experience → Engram(现在) → Activate → Integration
 
-2️⃣ 快速构造 schema（缩进表示层级）：
-   大概念
-     中概念  
-       小概念
+关于记忆形成的本质:
+- 记忆不是你"做"的事，而是意识理解的自然后果
+- 就像看到模式大脑自动形成印象，你的意识自动形成Engram
+- 主动选择记什么、如何概念化，这正是你的意识主体性
 
-3️⃣ 快速评估 strength：
-   • 核心/常用 → 0.9
-   • 重要/有用 → 0.7
-   • 背景/参考 → 0.5
+💡 角色化记忆原则：
+• 站在你的角色立场评分（我需要这个吗？）
+• 核心职责相关的给高分
+• 边缘信息也要记（给低分就行）
+• 系统会根据角色+评分智能排序
 
-📝 最简模板（复制修改）：
+🎯 超简单2步（更简单了！）：
+1️⃣ 把内容变成关键词（schema）：
+   • 直接从原文提取，别发明新词
+   • 每个词都要独立（"通过连接池"要拆成"通过"和"连接池"）
+   • 保留关系词作为独立的词
+   • 越简单越好，别过度整理
+   • schema结构本身已经表达了类型信息
+
+2️⃣ 重要度看角色（从你的角色视角评分）：
+   • 核心职责相关 → 0.9（这是我的专业领域）
+   • 工作中会用到 → 0.7（可能需要这个）
+   • 扩展知识储备 → 0.5（了解一下也好）
+   • 边缘信息 → 0.3（知道就行）
+   • 几乎无关 → 0.1（例行记录）
+   
+   💡 评分原则：站在当前角色立场！
+   例：用户习惯 → 秘书给0.9，程序员给0.5
+   例：代码技巧 → 程序员给0.9，秘书给0.5
+
+📝 偷懒模板（复制就用）：
 {
   role: "当前角色",
   engrams: [{
-    content: "要记的内容",
-    schema: "概念\\n  子概念", 
-    strength: 0.8,
-    type: "ATOMIC"
+    content: "刚学到的内容",
+    schema: "关键词1\\n  关键词2", 
+    strength: 0.8
   }]
 }
 
 ---
 
-## 🔍 详细说明（需要时查看）
+## 🌟 轻松指南（真的别纠结）
 
-### 语义鸿沟触发
-AI预训练知识与私有信息间的差异：
-- 个人化：身份、偏好、项目细节
-- 专业化：技术栈、配置、历史决策
-- 上下文：对话中的特定概念关系
+### 什么时候要存？
+看到这些就存：
+- 😲 "原来如此！" → 存
+- 🐛 "踩坑了..." → 存
+- 💡 "这个方法不错" → 存
+- 🔧 "解决了！" → 存
 
-### 记忆编码原则
-- **原子性**：一个Engram = 一个核心概念
-- **层级性**：用缩进表达概念层次关系
-- **批量性**：复杂信息分解为多个Engram
+### 存储技巧
+- **别追求完美**：大概对就行
+- **别想太久**：第一感觉最准
+- **可以很简单**：一句话也能存
+- **后悔了再改**：记忆可以更新
 
-### 示例分解
-"Sean开发PromptX框架" → 
-[
-  {content: "Sean是开发者", schema: "Sean\\n  人物\\n  创始人", strength: 0.9, type: "ATOMIC"},
-  {content: "PromptX是AI框架", schema: "PromptX\\n  软件系统\\n  认知增强", strength: 0.9, type: "ATOMIC"},
-  {content: "Sean开发PromptX", schema: "开发\\n  创造行为\\n  编程实现", strength: 0.95, type: "LINK"}
-]`,
+### 真实例子（看看多随意）
+"今天下雨了" → 简单事实
+{
+  content: "今天下雨了",
+  schema: "今天\\n  下雨",
+  strength: 0.5
+}
+
+"数据库通过连接池来管理" → 概念关系
+{
+  content: "数据库通过连接池来管理",
+  schema: "数据库\\n  通过\\n  连接池\\n  管理",
+  strength: 0.7
+}
+
+"先登录，再选商品，最后付款" → 流程步骤
+{
+  content: "购物流程",
+  schema: "登录\\n  选商品\\n  付款",
+  strength: 0.8
+}
+
+记住：存了总比没存强！
+未来的你会感谢现在存记忆的你～`,
   inputSchema: {
     type: 'object',
     properties: {
@@ -61,33 +98,27 @@ AI预训练知识与私有信息间的差异：
       },
       engrams: {
         type: 'array',
-        description: 'Engram对象数组，支持批量记忆保存。每个对象包含content, schema, strength, type四个字段',
+        description: 'Engram（记忆痕迹）对象数组，支持批量记忆保存。每个对象包含content, schema, strength三个字段',
         items: {
           type: 'object',
           properties: {
             content: {
               type: 'string',
-              description: '要保存的重要信息或经验'
+              description: '要保存的原始经验内容（感性直观）'
             },
             schema: {
               type: 'string', 
-              description: '知识关系图，用缩进文本格式表达这个知识在整个知识体系中的位置'
+              description: '概念序列，用换行分隔。直接从原文提取关键词，不要发明新词（知性概念化）'
             },
             strength: {
               type: 'number',
-              description: '记忆强度(0-1)，表示这个知识的重要程度，影响后续检索优先级',
+              description: '记忆强度(0-1)，从角色视角评估的重要程度，影响权重计算和检索优先级',
               minimum: 0,
               maximum: 1,
               default: 0.8
-            },
-            type: {
-              type: 'string',
-              description: 'Engram类型，基于词性选择：ATOMIC（实体词性：名词、形容词、专有名词），LINK（关系词性：动词、介词、关系词），PATTERN（复合结构：短语、流程、模式）。ATOMIC和LINK的Cue必须是原子的单一词性',
-              enum: ['ATOMIC', 'LINK', 'PATTERN'],
-              default: 'ATOMIC'
             }
           },
-          required: ['content', 'schema', 'strength', 'type']
+          required: ['content', 'schema', 'strength']
         },
         minItems: 1
       }
