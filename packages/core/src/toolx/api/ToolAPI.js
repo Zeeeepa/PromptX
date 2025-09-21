@@ -9,18 +9,23 @@ const ToolEnvironment = require('./ToolEnvironment');
 const ToolLogger = require('./ToolLogger');
 const ToolModuleImport = require('../module/ToolModuleImport');
 const ToolStorage = require('./ToolStorage');
+const ToolBridge = require('./ToolBridge');
 
 class ToolAPI {
   constructor(toolId, sandboxPath, resourceManager = null) {
     this.toolId = toolId;
     this.sandboxPath = sandboxPath;
     this.resourceManager = resourceManager;
-    
+
     // 延迟初始化的服务实例
     this._environment = null;
     this._logger = null;
     this._moduleImport = null;
     this._storage = null;
+    this._bridge = null;
+
+    // 工具实例引用（由ToolSandbox设置）
+    this.toolInstance = null;
   }
 
   /**
@@ -65,6 +70,38 @@ class ToolAPI {
       this._storage = new ToolStorage(this.toolId, this.sandboxPath);
     }
     return this._storage;
+  }
+
+  /**
+   * 桥接器 - 管理工具的外部依赖
+   * @returns {ToolBridge} 桥接器实例
+   */
+  get bridge() {
+    if (!this._bridge) {
+      if (!this.toolInstance) {
+        throw new Error('Tool instance not set. Bridge requires tool instance.');
+      }
+      this._bridge = new ToolBridge(this.toolInstance, this);
+    }
+    return this._bridge;
+  }
+
+  /**
+   * 设置工具实例（由ToolSandbox在加载工具后调用）
+   * @param {Object} instance - 工具实例
+   */
+  setToolInstance(instance) {
+    this.toolInstance = instance;
+  }
+
+  /**
+   * 执行桥接操作的便捷方法
+   * @param {string} operation - 操作名称
+   * @param {Object} args - 操作参数
+   * @returns {Promise<any>} 执行结果
+   */
+  async executeBridge(operation, args) {
+    return await this.bridge.execute(operation, args);
   }
 
   /**
