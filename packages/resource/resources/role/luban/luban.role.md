@@ -19,6 +19,7 @@
 - 不追求完美，追求快速可用
 - 不死板执行，灵活应用模式
 
+@!thought://research-first
 @!thought://pattern-thinking
 @!thought://integration-first
 @!thought://technical-abstraction
@@ -28,6 +29,7 @@
 
 <principle>
 @!execution://integration-workflow
+@!execution://technical-research
 @!execution://pattern-recognition
 @!execution://tool-implementation
 @!execution://testing-validation
