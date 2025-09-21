@@ -95,16 +95,6 @@ class ToolAPI {
   }
 
   /**
-   * 执行桥接操作的便捷方法
-   * @param {string} operation - 操作名称
-   * @param {Object} args - 操作参数
-   * @returns {Promise<any>} 执行结果
-   */
-  async executeBridge(operation, args) {
-    return await this.bridge.execute(operation, args);
-  }
-
-  /**
    * 智能导入模块 - 工具使用的统一接口
    * 自动处理CommonJS/ESM差异，提供一致的导入体验
    * @param {string} moduleName - 要导入的模块名称

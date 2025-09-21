@@ -233,7 +233,7 @@ module.exports = {
         database: await api.environment.get('DB_NAME')
       };
 
-      const connection = await api.executeBridge('db:connect', dbConfig);
+      const connection = await api.bridge.execute('db:connect', dbConfig);
 
       // 2. 执行查询
       api.logger.info(`Executing query: ${query}`);
@@ -243,7 +243,7 @@ module.exports = {
       if (apiEndpoint) {
         const apiKey = await api.environment.get('API_KEY');
 
-        const response = await api.executeBridge('http:request', {
+        const response = await api.bridge.execute('http:request', {
           url: apiEndpoint,
           method: 'POST',
           headers: apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {},
