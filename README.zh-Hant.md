@@ -209,6 +209,12 @@ docker run -d -p 5203:5203 -v ~/.promptx:/root/.promptx deepracticexs/promptx:la
 
 🌐 [官網](https://deepractice.ai) | 🔧 [GitHub](https://github.com/Deepractice) | 📚 [文檔中心](https://docs.deepractice.ai) | 💬 [論壇](https://x.deepractice.ai) | 🚀 [中轉站服務](https://router.deepractice.ai)
 
+### 聯繫創始人
+
+<img src="https://brands.deepractice.ai/images/sean-wechat-qrcode.jpg" alt="Sean的微信" width="200"/>
+
+*掃碼添加 Sean（創始人兼CEO）微信*
+
 ### 程式碼簽章
 
 Windows 桌面應用程式程式碼簽章由 [SignPath.io](https://signpath.io) 提供，憑證由 [SignPath Foundation](https://signpath.org) 簽發。
