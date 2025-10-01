@@ -412,11 +412,14 @@ jobs:
 
       - name: Upload to Cloudflare R2
         run: |
-          # 安装 wrangler
-          npm install -g wrangler
+          # 安装 AWS CLI（用于 S3 兼容 API）
+          pip install awscli
 
           # 提取版本号（去掉 v 前缀）
           VERSION=${GITHUB_REF_NAME#v}
+
+          # 配置 R2 endpoint
+          R2_ENDPOINT="https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com"
 
           # 上传所有发布文件到 R2
           for file in release-files/*; do
@@ -425,14 +428,12 @@ jobs:
               echo "Uploading $filename to R2..."
 
               # 上传到版本目录（归档）
-              npx wrangler r2 object put "promptx-releases/$VERSION/$filename" \
-                --file "$file" \
-                --content-type "application/octet-stream"
+              aws s3 cp "$file" "s3://promptx-releases/$VERSION/$filename" \
+                --endpoint-url "$R2_ENDPOINT"
 
               # 同时上传到 latest 目录（自动更新）
-              npx wrangler r2 object put "promptx-releases/latest/$filename" \
-                --file "$file" \
-                --content-type "application/octet-stream"
+              aws s3 cp "$file" "s3://promptx-releases/latest/$filename" \
+                --endpoint-url "$R2_ENDPOINT"
             fi
           done
 
@@ -440,8 +441,9 @@ jobs:
           echo "  - Version: promptx-releases/$VERSION/"
           echo "  - Latest: promptx-releases/latest/"
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
 
       - name: Summary
         run: |
