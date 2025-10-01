@@ -142,7 +142,7 @@ docker run -d -p 5203:5203 -v ~/.promptx:/root/.promptx deepracticexs/promptx:la
 
 </div>
 
-### 🔧 **Luban - Tool Integration Master"
+### 🔧 **Luban - Tool Integration Master**
 <div align="center">
   <img src="assets/logo/luban-enchance.png" alt="Luban" width="120" style="border-radius: 50%; margin: 15px 0 25px 0;">
 </div>
@@ -161,7 +161,7 @@ docker run -d -p 5203:5203 -v ~/.promptx:/root/.promptx deepracticexs/promptx:la
 
 </div>
 
-### ✍️ **Writer - Professional Content Creator"
+### ✍️ **Writer - Professional Content Creator**
 
 **From concept to compelling content. Master of authentic, engaging writing.**
 
