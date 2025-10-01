@@ -197,6 +197,18 @@ docker run -d -p 5203:5203 -v ~/.promptx:/root/.promptx deepracticexs/promptx:la
 
 ---
 
+## 💝 **Sponsors**
+
+<div align="center">
+
+### Code Signing
+
+Windows desktop application code signing is provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+</div>
+
+---
+
 ## 🏢 **About**
 
 <div align="center">
@@ -212,9 +224,5 @@ docker run -d -p 5203:5203 -v ~/.promptx:/root/.promptx deepracticexs/promptx:la
 <img src="https://brands.deepractice.ai/images/sean-wechat-qrcode.jpg" alt="Sean's WeChat" width="200"/>
 
 *Scan to connect with Sean (Founder & CEO) on WeChat*
-
-### Code Signing
-
-Windows desktop application code signing is provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
 
 </div>

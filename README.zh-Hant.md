@@ -199,6 +199,18 @@ docker run -d -p 5203:5203 -v ~/.promptx:/root/.promptx deepracticexs/promptx:la
 
 ---
 
+## 💝 **贊助商**
+
+<div align="center">
+
+### 程式碼簽章
+
+Windows 桌面應用程式程式碼簽章由 [SignPath.io](https://signpath.io) 提供，憑證由 [SignPath Foundation](https://signpath.org) 簽發。
+
+</div>
+
+---
+
 ## 🏢 **關於我們**
 
 <div align="center">
@@ -215,18 +227,7 @@ docker run -d -p 5203:5203 -v ~/.promptx:/root/.promptx deepracticexs/promptx:la
 
 *掃碼添加 Sean（創始人兼CEO）微信*
 
-### 程式碼簽章
-
-Windows 桌面應用程式程式碼簽章由 [SignPath.io](https://signpath.io) 提供，憑證由 [SignPath Foundation](https://signpath.org) 簽發。
-
 </div>
 
----
-
-### 📱 聯絡作者
-
-<img src="assets/qrcode.jpg" alt="添加開發者微信" width="200">
-
-**掃碼添加開發者微信，獲取技術支援與合作洽談**
 
 </div>
