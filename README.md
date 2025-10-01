@@ -212,7 +212,7 @@ docker run -d -p 5203:5203 -v ~/.promptx:/root/.promptx deepracticexs/promptx:la
 
 <div align="center">
 
-### Code Signing
+### [SignPath](https://signpath.io)
 
 Windows desktop application code signing is provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
 

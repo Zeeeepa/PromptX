@@ -219,7 +219,7 @@ docker run -d -p 5203:5203 -v ~/.promptx:/root/.promptx deepracticexs/promptx:la
 
 <div align="center">
 
-### 代码签名
+### [SignPath](https://signpath.io)
 
 Windows 桌面应用程序代码签名由 [SignPath.io](https://signpath.io) 提供，证书由 [SignPath Foundation](https://signpath.org) 签发。
 
