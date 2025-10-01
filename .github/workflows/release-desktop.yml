@@ -410,6 +410,44 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Upload release files as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-files
+          path: release-files/*
+          retention-days: 1
+
+      - name: Summary
+        run: |
+          echo "## 🎉 Desktop Apps Released Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Release: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ Completed Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "- macOS: Built and Notarized" >> $GITHUB_STEP_SUMMARY
+          echo "- Windows: Built and Signed" >> $GITHUB_STEP_SUMMARY
+          echo "- Linux: Built (deb, AppImage, rpm)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Release Contents:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          ls -lh release-files/ >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================
+  # 第4阶段：同步到 Cloudflare R2 CDN
+  # ============================================
+  sync-to-r2:
+    name: Sync to R2 CDN
+    needs: upload-release
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Download release files
+        uses: actions/download-artifact@v4
+        with:
+          name: release-files
+          path: release-files
+
       - name: Upload to Cloudflare R2
         run: |
           # 安装 AWS CLI（用于 S3 兼容 API）
@@ -421,25 +459,19 @@ jobs:
           # 配置 R2 endpoint
           R2_ENDPOINT="https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com"
 
-          # 上传所有发布文件到 R2
+          # 上传所有发布文件到 R2（仅版本目录）
           for file in release-files/*; do
             if [ -f "$file" ]; then
               filename=$(basename "$file")
               echo "Uploading $filename to R2..."
 
-              # 上传到版本目录（归档）
+              # 上传到版本目录
               aws s3 cp "$file" "s3://promptx-releases/$VERSION/$filename" \
-                --endpoint-url "$R2_ENDPOINT"
-
-              # 同时上传到 latest 目录（自动更新）
-              aws s3 cp "$file" "s3://promptx-releases/latest/$filename" \
                 --endpoint-url "$R2_ENDPOINT"
             fi
           done
 
-          echo "✅ All files uploaded to R2:"
-          echo "  - Version: promptx-releases/$VERSION/"
-          echo "  - Latest: promptx-releases/latest/"
+          echo "✅ All files uploaded to R2: promptx-releases/$VERSION/"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
@@ -448,20 +480,10 @@ jobs:
       - name: Summary
         run: |
           VERSION=${GITHUB_REF_NAME#v}
-          echo "## 🎉 Desktop Apps Released Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "## 🌐 R2 CDN Sync Complete!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Release: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Version: $VERSION" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### ✅ Completed Steps:" >> $GITHUB_STEP_SUMMARY
-          echo "- macOS: Built and Notarized" >> $GITHUB_STEP_SUMMARY
-          echo "- Windows: Built and Signed" >> $GITHUB_STEP_SUMMARY
-          echo "- Linux: Built (deb, AppImage, rpm)" >> $GITHUB_STEP_SUMMARY
-          echo "- R2: Synced to Cloudflare R2" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📦 Release Contents:" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          ls -lh release-files/ >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🌐 CDN URLs:" >> $GITHUB_STEP_SUMMARY
-          echo "- Base URL: https://r2.deepractice.ai/promptx-releases/$VERSION/" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 CDN URLs:" >> $GITHUB_STEP_SUMMARY
+          echo "- Version: https://r2.deepractice.ai/promptx-releases/$VERSION/" >> $GITHUB_STEP_SUMMARY
+          echo "- Latest: https://r2.deepractice.ai/promptx-releases/latest/ (auto-redirects)" >> $GITHUB_STEP_SUMMARY
