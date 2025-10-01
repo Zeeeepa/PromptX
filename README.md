@@ -76,9 +76,20 @@ AI:   Provides in-depth product strategy advice as a professional product manage
 ### 🎯 Method 1: PromptX Client (Recommended)
 **For all users - One-click launch, zero configuration**
 
-1. **[Download Client](https://github.com/Deepractice/PromptX/releases/latest)** - Supports Windows, Mac, Linux
-2. **Start HTTP Service** - Open client, automatically runs MCP server
-3. **Configure AI Application** - Add the following configuration to your Claude/Cursor or other AI tools:
+#### 📥 Download Client
+
+| Platform | Download Link |
+|----------|--------------|
+| 🍎 **macOS (Apple Silicon)** | [Download .dmg](https://promptx.deepractice.ai/download/latest/promptx-desktop-mac-arm64.dmg) |
+| 🍎 **macOS (Intel)** | [Download .dmg](https://promptx.deepractice.ai/download/latest/promptx-desktop-mac-x64.dmg) |
+| 🪟 **Windows** | [Download .exe](https://promptx.deepractice.ai/download/latest/promptx-desktop-win32-x64-setup.exe) |
+
+[📦 View All Releases & Platforms](https://promptx.deepractice.ai/download/) (Linux, Portable versions, etc.)
+
+#### 🚀 Quick Start
+
+1. **Start HTTP Service** - Open client, automatically runs MCP server
+2. **Configure AI Application** - Add the following configuration to your Claude/Cursor or other AI tools:
    ```json
    {
      "mcpServers": {
@@ -90,7 +101,7 @@ AI:   Provides in-depth product strategy advice as a professional product manage
    }
    ```
 
-4. **Start Chatting** - Say "Show me available experts" in your AI application
+3. **Start Chatting** - Say "Show me available experts" in your AI application
 
 ✅ No technical background required ✅ Visual management ✅ Auto-updates
 

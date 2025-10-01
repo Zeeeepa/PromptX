@@ -83,9 +83,20 @@ AI：   以专业产品经理身份，提供深度产品策略建议
 
 **适合所有用户 - 一键启动，零配置**
 
-1. **[下载客户端](https://github.com/Deepractice/PromptX/releases/latest)** - 支持 Windows、Mac、Linux
-2. **启动HTTP服务** - 打开客户端，自动运行MCP服务器
-3. **配置AI应用** - 将以下配置添加到你的Claude/Cursor等AI工具：
+#### 📥 下载客户端
+
+| 平台 | 下载链接 |
+|------|---------|
+| 🍎 **macOS (Apple 芯片)** | [下载 .dmg](https://promptx.deepractice.ai/download/latest/promptx-desktop-mac-arm64.dmg) |
+| 🍎 **macOS (Intel 芯片)** | [下载 .dmg](https://promptx.deepractice.ai/download/latest/promptx-desktop-mac-x64.dmg) |
+| 🪟 **Windows** | [下载 .exe](https://promptx.deepractice.ai/download/latest/promptx-desktop-win32-x64-setup.exe) |
+
+[📦 查看所有版本和平台](https://promptx.deepractice.ai/download/) (Linux、便携版等)
+
+#### 🚀 快速开始
+
+1. **启动HTTP服务** - 打开客户端，自动运行MCP服务器
+2. **配置AI应用** - 将以下配置添加到你的Claude/Cursor等AI工具：
 
    ```json
    {
@@ -97,7 +108,7 @@ AI：   以专业产品经理身份，提供深度产品策略建议
      }
    }
    ```
-4. **开始对话** - 在AI应用中说"我要看看有哪些专家"
+3. **开始对话** - 在AI应用中说"我要看看有哪些专家"
 
 ✅ 无需技术背景 ✅ 可视化管理 ✅ 自动更新
 
