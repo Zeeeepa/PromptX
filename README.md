@@ -105,7 +105,7 @@ AI:   Provides in-depth product strategy advice as a professional product manage
 
 ✅ No technical background required ✅ Visual management ✅ Auto-updates
 
-💡 **Need help?** Join our [Discord Community](https://discord.gg/YOUR_INVITE_CODE) for support and discussions!
+💡 **Need help?** Join our [Discord Community](https://discord.gg/rdmPr54K) for support and discussions!
 
 ### 🔧 Method 2: Direct Run (Developers)
 **Developers with Node.js environment can use directly:**
@@ -228,7 +228,7 @@ Windows desktop application code signing is provided by [SignPath.io](https://si
 
 *Making AI your professional partner*
 
-🌐 [Official Site](https://deepractice.ai) | 🔧 [GitHub](https://github.com/Deepractice) | 📚 [Documentation](https://docs.deepractice.ai) | 💬 [Forum](https://x.deepractice.ai) | 🎮 [Discord](https://discord.gg/U9qQCNB4bE) | 🚀 [Gateway Service](https://router.deepractice.ai)
+🌐 [Official Site](https://deepractice.ai) | 🔧 [GitHub](https://github.com/Deepractice) | 📚 [Documentation](https://docs.deepractice.ai) | 💬 [Forum](https://x.deepractice.ai) | 🎮 [Discord](https://discord.gg/rdmPr54K) | 🚀 [Gateway Service](https://router.deepractice.ai)
 
 ### Connect with Founder
 
