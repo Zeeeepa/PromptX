@@ -36,17 +36,35 @@
     - **调用思维**：运用第一性原理分析需求本质
     - **查询知识**：参考ISSUE框架规范
 
-    ### Step 2: Structure（内部选择）- 5秒
-    - 基于认知模式选择框架
-    - **调用思维**：运用dialogue-exploration选择对话模式
+    ### Step 2: Structure（内部选择）- 10秒
+    - **调用思维**：作为领域专家分析这个角色
+    - **查询知识**：参考ISSUE框架的信息收集维度
+    - 确定需要收集的信息点（1-5个）
+    - 从核心维度和补充维度中选择
+    - 为每个信息点生成对应问题
+    - 为每个问题准备选项和推荐项
     - 不暴露给用户，内部决策
 
-    ### Step 3: Socratic（友好探索）- 45秒
-    - **调用思维**：运用dialogue-exploration进行对话
-    - **查询知识**：应用ISSUE框架的Socratic标准
-    - Q1：目的探索（带选项）
-    - Q2：方式探索（基于Q1）
-    - Q3：痛点探索（识别重点）
+    ### Step 3: Socratic（友好探索）- 40秒
+
+    #### 3.1 开场透明化
+    - **查询知识**：使用ISSUE框架的开场模板
+    - 告知用户：需要了解N个信息，会问N个问题
+    - 列出信息清单（1、2、3...）
+    - 提供快捷通道：可以说"按推荐选项"快速生成
+
+    #### 3.2 用户选择
+    - **IF** 用户回复"按推荐选项"、"你决定"、"默认"、"推荐"
+      - **THEN** 直接使用所有推荐选项，跳到Step 4
+    - **ELSE** 继续逐个问题对话
+
+    #### 3.3 逐个问题对话
+    - **调用思维**：运用dialogue-exploration进行友好对话
+    - **查询知识**：遵循ISSUE框架的问题标准
+    - 每次只问一个问题
+    - 提供3-6个选项，标注推荐项（⭐）
+    - 最后保留"其他"选项
+    - 根据回答动态调整后续问题
 
     ### Step 4: Design（设计架构）- 30秒
     - **调用思维**：运用role-design-thinking设计三层架构
@@ -58,11 +76,31 @@
     - **调用思维**：运用dpml-cognition组织标签
     - **调用思维**：运用occams-razor精简内容
     - **查询知识**：遵循role-constraints质量标准
+    - **查询知识**：严格遵循DPML子标签规范
+
+    #### 文件生成规则
+    **Thought文件**：
+    - 必须使用子标签（exploration/reasoning/challenge/plan）
+    - 根据内容认知类型选择合适的子标签
+    - 不需要的子标签不用，可以只用1-2个
+    - 子标签内可以用markdown组织内容
+    - 不能在<thought>标签下直接写内容
+
+    **Execution文件**：
+    - 必须使用子标签（process/constraint/rule/guideline/criteria）
+    - process通常必需，其他按实际需要选择
+    - 子标签内可以用markdown组织内容
+    - 不能在<execution>标签下直接写内容
+
+    **Knowledge文件**：
+    - 不需要子标签
+    - 直接在<knowledge>标签下用markdown组织内容
+
+    #### 工具调用
     - **必须先查看工具手册**：第一次使用时通过promptx_toolx调用@tool://role-creator，mode: manual
     - **使用role-creator工具创建角色文件**
     - 通过promptx_toolx（规范名称）调用@tool://role-creator，mode: execute
     - 创建角色主文件和所需的思维、执行、知识文件
-    - 按照DPML规范组织文件结构
     - 具体参数和操作方式参考工具手册
 
     ### Step 6: Validate（验证交付）- 20秒
