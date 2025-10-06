@@ -145,8 +145,18 @@ jobs:
           cd /tmp/dpml-prompt-wrapper
           VERSION="${{ steps.version.outputs.version }}"
 
-          # Publish to all tags
-          TAGS=("dev" "alpha" "beta" "latest")
+          # First publish with dev tag (or any tag)
+          echo "Publishing dpml-prompt@$VERSION (first publish)"
+          npm publish --access public --tag dev
+
+          # Then add all other tags pointing to the same version
+          TAGS=("alpha" "beta" "latest")
+
+          echo "Adding additional tags..."
+          for NPM_TAG in "${TAGS[@]}"; do
+            echo "Adding tag: $NPM_TAG"
+            npm dist-tag add dpml-prompt@$VERSION $NPM_TAG
+          done
 
           echo "## dpml-prompt Wrapper Published 🎉" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -155,13 +165,10 @@ jobs:
           echo "- **Wraps**: @promptx/cli@$VERSION" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Published to npm tags:" >> $GITHUB_STEP_SUMMARY
-
-          for NPM_TAG in "${TAGS[@]}"; do
-            echo "Publishing dpml-prompt@$VERSION with tag: $NPM_TAG"
-            npm publish --access public --tag $NPM_TAG
-            echo "  - ✅ \`$NPM_TAG\`" >> $GITHUB_STEP_SUMMARY
-          done
-
+          echo "  - ✅ \`dev\`" >> $GITHUB_STEP_SUMMARY
+          echo "  - ✅ \`alpha\`" >> $GITHUB_STEP_SUMMARY
+          echo "  - ✅ \`beta\`" >> $GITHUB_STEP_SUMMARY
+          echo "  - ✅ \`latest\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "⚠️ **Note**: This is a deprecated wrapper for backward compatibility." >> $GITHUB_STEP_SUMMARY
         env:
