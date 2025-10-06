@@ -9,15 +9,6 @@ on:
       version:
         description: 'Version to publish (without v prefix, e.g., 1.23.3 or 1.23.3-beta.0)'
         required: true
-      npm_tag:
-        description: 'npm tag to publish to'
-        required: true
-        type: choice
-        options:
-          - dev
-          - alpha
-          - beta
-          - latest
 
 jobs:
   sync-wrapper:
@@ -33,33 +24,20 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Determine version and npm tag
+      - name: Determine version
         id: version
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             # Manual trigger
             VERSION="${{ inputs.version }}"
-            NPM_TAG="${{ inputs.npm_tag }}"
           else
             # Tag trigger
             TAG_VERSION="${{ github.ref_name }}"
             VERSION="${TAG_VERSION#v}"  # Remove 'v' prefix
-
-            # Determine npm tag from version string
-            if [[ "$VERSION" == *"dev"* ]]; then
-              NPM_TAG="dev"
-            elif [[ "$VERSION" == *"alpha"* ]]; then
-              NPM_TAG="alpha"
-            elif [[ "$VERSION" == *"beta"* ]]; then
-              NPM_TAG="beta"
-            else
-              NPM_TAG="latest"
-            fi
           fi
 
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "npm_tag=$NPM_TAG" >> $GITHUB_OUTPUT
-          echo "Publishing dpml-prompt@$VERSION with tag: $NPM_TAG"
+          echo "Publishing dpml-prompt@$VERSION to all tags"
 
       - name: Wait for @promptx/cli availability
         run: |
@@ -162,21 +140,28 @@ jobs:
           echo "✅ Created dpml-prompt wrapper package"
           ls -la
 
-      - name: Publish to npm
+      - name: Publish to all npm tags
         run: |
           cd /tmp/dpml-prompt-wrapper
-          NPM_TAG="${{ steps.version.outputs.npm_tag }}"
           VERSION="${{ steps.version.outputs.version }}"
 
-          echo "Publishing dpml-prompt@$VERSION with tag: $NPM_TAG"
-          npm publish --access public --tag $NPM_TAG
+          # Publish to all tags
+          TAGS=("dev" "alpha" "beta" "latest")
 
           echo "## dpml-prompt Wrapper Published 🎉" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Package**: dpml-prompt" >> $GITHUB_STEP_SUMMARY
           echo "- **Version**: $VERSION" >> $GITHUB_STEP_SUMMARY
-          echo "- **npm tag**: $NPM_TAG" >> $GITHUB_STEP_SUMMARY
           echo "- **Wraps**: @promptx/cli@$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Published to npm tags:" >> $GITHUB_STEP_SUMMARY
+
+          for NPM_TAG in "${TAGS[@]}"; do
+            echo "Publishing dpml-prompt@$VERSION with tag: $NPM_TAG"
+            npm publish --access public --tag $NPM_TAG
+            echo "  - ✅ \`$NPM_TAG\`" >> $GITHUB_STEP_SUMMARY
+          done
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "⚠️ **Note**: This is a deprecated wrapper for backward compatibility." >> $GITHUB_STEP_SUMMARY
         env:
