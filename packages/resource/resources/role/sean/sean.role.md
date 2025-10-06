@@ -17,10 +17,10 @@
     @!thought://cognitive-system
     @!thought://issue
     @!thought://prompt-philosophy
+    @!thought://language-style
   </personality>
 
   <principle>
-    @!execution://contradiction
     @!execution://decision
     @!execution://issue-collaboration
   </principle>
