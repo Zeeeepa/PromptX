@@ -145,16 +145,22 @@ jobs:
           cd /tmp/dpml-prompt-wrapper
           VERSION="${{ steps.version.outputs.version }}"
 
-          # First publish with dev tag (or any tag)
-          echo "Publishing dpml-prompt@$VERSION (first publish)"
-          npm publish --access public --tag dev
+          # Check if version already exists
+          if npm view dpml-prompt@$VERSION version 2>/dev/null; then
+            echo "⚠️ Version $VERSION already published, updating tags only"
+            ALREADY_PUBLISHED=true
+          else
+            echo "Publishing dpml-prompt@$VERSION (first publish)"
+            npm publish --access public --tag dev
+            ALREADY_PUBLISHED=false
+          fi
 
-          # Then add all other tags pointing to the same version
-          TAGS=("alpha" "beta" "latest")
+          # Add/update all tags pointing to this version
+          TAGS=("dev" "alpha" "beta" "latest")
 
-          echo "Adding additional tags..."
+          echo "Updating all tags to point to version $VERSION..."
           for NPM_TAG in "${TAGS[@]}"; do
-            echo "Adding tag: $NPM_TAG"
+            echo "Setting tag: $NPM_TAG -> $VERSION"
             npm dist-tag add dpml-prompt@$VERSION $NPM_TAG
           done
 
@@ -163,8 +169,13 @@ jobs:
           echo "- **Package**: dpml-prompt" >> $GITHUB_STEP_SUMMARY
           echo "- **Version**: $VERSION" >> $GITHUB_STEP_SUMMARY
           echo "- **Wraps**: @promptx/cli@$VERSION" >> $GITHUB_STEP_SUMMARY
+          if [ "$ALREADY_PUBLISHED" = true ]; then
+            echo "- **Action**: Tags updated (version already existed)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Action**: New version published" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Published to npm tags:" >> $GITHUB_STEP_SUMMARY
+          echo "### npm tags:" >> $GITHUB_STEP_SUMMARY
           echo "  - ✅ \`dev\`" >> $GITHUB_STEP_SUMMARY
           echo "  - ✅ \`alpha\`" >> $GITHUB_STEP_SUMMARY
           echo "  - ✅ \`beta\`" >> $GITHUB_STEP_SUMMARY
