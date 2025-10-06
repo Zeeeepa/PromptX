@@ -1,0 +1,189 @@
+name: Sync dpml-prompt wrapper
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (without v prefix, e.g., 1.23.3 or 1.23.3-beta.0)'
+        required: true
+      npm_tag:
+        description: 'npm tag to publish to'
+        required: true
+        type: choice
+        options:
+          - dev
+          - alpha
+          - beta
+          - latest
+
+jobs:
+  sync-wrapper:
+    name: Sync dpml-prompt wrapper to npm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Determine version and npm tag
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # Manual trigger
+            VERSION="${{ inputs.version }}"
+            NPM_TAG="${{ inputs.npm_tag }}"
+          else
+            # Tag trigger
+            TAG_VERSION="${{ github.ref_name }}"
+            VERSION="${TAG_VERSION#v}"  # Remove 'v' prefix
+
+            # Determine npm tag from version string
+            if [[ "$VERSION" == *"dev"* ]]; then
+              NPM_TAG="dev"
+            elif [[ "$VERSION" == *"alpha"* ]]; then
+              NPM_TAG="alpha"
+            elif [[ "$VERSION" == *"beta"* ]]; then
+              NPM_TAG="beta"
+            else
+              NPM_TAG="latest"
+            fi
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "npm_tag=$NPM_TAG" >> $GITHUB_OUTPUT
+          echo "Publishing dpml-prompt@$VERSION with tag: $NPM_TAG"
+
+      - name: Wait for @promptx/cli availability
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "Waiting for @promptx/cli@$VERSION to be available on npm..."
+
+          for i in {1..20}; do
+            if npm view @promptx/cli@$VERSION version 2>/dev/null; then
+              echo "✅ Package @promptx/cli@$VERSION is available"
+              break
+            fi
+
+            if [ $i -eq 20 ]; then
+              echo "❌ Timeout waiting for npm package"
+              exit 1
+            fi
+
+            echo "Attempt $i/20: Package not yet available, waiting 30s..."
+            sleep 30
+          done
+
+      - name: Create dpml-prompt wrapper package
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Create temporary directory for wrapper
+          mkdir -p /tmp/dpml-prompt-wrapper/bin
+          cd /tmp/dpml-prompt-wrapper
+
+          # Create package.json
+          cat > package.json <<EOF
+          {
+            "name": "dpml-prompt",
+            "version": "$VERSION",
+            "description": "Wrapper for @promptx/cli - DEPRECATED: Please use @promptx/cli instead",
+            "bin": {
+              "dpml-prompt": "./bin/dpml-prompt.js"
+            },
+            "dependencies": {
+              "@promptx/cli": "$VERSION"
+            },
+            "publishConfig": {
+              "access": "public"
+            },
+            "repository": {
+              "type": "git",
+              "url": "https://github.com/Deepractice/PromptX.git"
+            },
+            "keywords": ["promptx", "dpml", "ai", "mcp", "deprecated"],
+            "license": "MIT"
+          }
+          EOF
+
+          # Create wrapper script
+          cat > bin/dpml-prompt.js <<'EOF'
+          #!/usr/bin/env node
+          import('@promptx/cli/dist/promptx.js');
+          EOF
+
+          # Make script executable
+          chmod +x bin/dpml-prompt.js
+
+          # Create README with deprecation notice
+          cat > README.md <<'EOF'
+          # dpml-prompt (DEPRECATED)
+
+          ⚠️ **This package is deprecated and will no longer receive updates.**
+
+          Please use [@promptx/cli](https://www.npmjs.com/package/@promptx/cli) instead.
+
+          ## Migration Guide
+
+          ### Old configuration (Claude Desktop):
+          ```json
+          {
+            "mcpServers": {
+              "promptx": {
+                "command": "npx",
+                "args": ["-y", "dpml-prompt@beta", "mcp-server"]
+              }
+            }
+          }
+          ```
+
+          ### New configuration:
+          ```json
+          {
+            "mcpServers": {
+              "promptx": {
+                "command": "npx",
+                "args": ["-y", "@promptx/cli@beta", "mcp-server"]
+              }
+            }
+          }
+          ```
+
+          This wrapper package simply forwards all calls to @promptx/cli.
+          EOF
+
+          echo "✅ Created dpml-prompt wrapper package"
+          ls -la
+
+      - name: Publish to npm
+        run: |
+          cd /tmp/dpml-prompt-wrapper
+          NPM_TAG="${{ steps.version.outputs.npm_tag }}"
+          VERSION="${{ steps.version.outputs.version }}"
+
+          echo "Publishing dpml-prompt@$VERSION with tag: $NPM_TAG"
+          npm publish --access public --tag $NPM_TAG
+
+          echo "## dpml-prompt Wrapper Published 🎉" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package**: dpml-prompt" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: $VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "- **npm tag**: $NPM_TAG" >> $GITHUB_STEP_SUMMARY
+          echo "- **Wraps**: @promptx/cli@$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **Note**: This is a deprecated wrapper for backward compatibility." >> $GITHUB_STEP_SUMMARY
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.ORG_NPM_TOKEN }}
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf /tmp/dpml-prompt-wrapper
+          echo "✅ Cleaned up temporary files"
