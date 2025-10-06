@@ -17,7 +17,7 @@
   <p>
     <a href="https://www.npmjs.com/package/@promptx/cli"><img src="https://img.shields.io/npm/v/@promptx/cli?color=orange&logo=npm" alt="npm version"/></a>
     <a href="https://github.com/Deepractice/PromptX/releases"><img src="https://img.shields.io/github/v/release/Deepractice/PromptX?color=green&logo=github" alt="最新版本"/></a>
-    <a href="https://hub.docker.com/r/deepracticexs/promptx"><img src="https://img.shields.io/docker/v/deepracticexs/promptx/latest?color=0db7ed&logo=docker&logoColor=white&label=docker" alt="Docker"/></a>
+    <a href="https://hub.docker.com/r/deepracticexs/promptx"><img src="https://img.shields.io/badge/docker-latest-0db7ed?logo=docker&logoColor=white" alt="Docker"/></a>
   </p>
 
 <p>
