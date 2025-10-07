@@ -11,7 +11,7 @@
 // 导入错误定义
 const ERROR_CATEGORIES = require('./ErrorCategories');
 const DEVELOPMENT_ERRORS = require('./DevelopmentErrors');
-const { VALIDATION_ERRORS, validateAgainstSchema, checkMissingEnvVars } = require('./ValidationErrors');
+const { VALIDATION_ERRORS, validateAgainstSchema } = require('./ValidationErrors');
 const SYSTEM_ERRORS = require('./SystemErrors');
 
 class ToolError extends Error {
@@ -23,7 +23,6 @@ class ToolError extends Error {
   
   // 工具函数
   static validateAgainstSchema = validateAgainstSchema;
-  static checkMissingEnvVars = checkMissingEnvVars;
 
   constructor(message, code = 'UNKNOWN_ERROR', details = {}) {
     super(message);
@@ -120,7 +119,11 @@ class ToolError extends Error {
     // 2. 检查ValidationError（基于schema和环境变量）
     // 先进行schema验证
     if (context.schema && context.params) {
-      const validation = validateAgainstSchema(context.params, context.schema);
+      // 适配新的schema格式：支持 schema.parameters 或直接使用 schema
+      // 标准格式: { parameters: {...}, environment: {...} }
+      // 兼容格式: { type: 'object', properties: {...}, required: [...] }
+      const paramSchema = context.schema.parameters || context.schema;
+      const validation = validateAgainstSchema(context.params, paramSchema);
       if (!validation.valid) {
         context.validationResult = validation;
         
@@ -156,11 +159,21 @@ class ToolError extends Error {
       }
     }
     
-    // 检查环境变量
-    if (context.metadata?.envVars && context.environment) {
-      const missing = checkMissingEnvVars(context.metadata.envVars, context.environment);
-      if (missing.length > 0) {
-        context.missingEnvVars = missing;
+    // 检查环境变量（从 schema.environment）
+    if (context.environment && context.schema?.environment) {
+      const envSchema = context.schema.environment;
+      const missingEnvVars = [];
+
+      if (envSchema.required && Array.isArray(envSchema.required)) {
+        for (const envName of envSchema.required) {
+          if (!context.environment[envName]) {
+            missingEnvVars.push(envName);
+          }
+        }
+      }
+
+      if (missingEnvVars.length > 0) {
+        context.missingEnvVars = missingEnvVars;
         const errorDef = VALIDATION_ERRORS.MISSING_ENV_VAR;
         return {
           category: ERROR_CATEGORIES.VALIDATION.name,
