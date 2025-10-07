@@ -1,16 +1,21 @@
 /**
  * Excel - Excel文件读写操作工具
- * 
+ *
  * 战略意义：
  * 1. 数据桥梁价值：打通AI与Excel数据世界的连接
  * 2. 通用性保证：纯行列操作，不对数据格式做任何假设
  * 3. 生态基础设施：为PromptX提供结构化数据处理能力
- * 
+ *
  * 设计理念：
  * 采用action统一参数设计，避免过度分层。
  * 基于行列的原子操作，保持最大灵活性。
  * 索引从1开始符合Excel习惯，降低用户认知成本。
- * 
+ *
+ * 图表功能约束：
+ * 创建图表时必须使用独立的输出文件，不能覆盖原始数据文件。
+ * xlsx-chart库会完全重写文件内容，使用相同文件会导致原始数据丢失。
+ * 建议输出路径格式：原文件名-chart.xlsx（如：data.xlsx → data-chart.xlsx）
+ *
  * 生态定位：
  * 作为数据处理类工具的基础组件，支撑报表生成、数据分析等场景。
  */
@@ -465,6 +470,10 @@ module.exports = {
     api.logger.info('Creating chart', { chartType, outputFilePath });
 
     let titles, fields, values;
+
+    // Important: When creating charts, outputFilePath must be different from the source data file
+    // Using the same file will cause data loss as the chart library overwrites the original file
+    // Always use a separate output file for charts
 
     // 如果提供了 sourceFile，从现有文件读取数据
     if (chartData.sourceFile) {
