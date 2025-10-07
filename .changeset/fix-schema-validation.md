@@ -1,5 +1,5 @@
 ---
-"@deepractice/core": patch
+"@promptx/core": patch
 ---
 
 fix: 修复schema参数验证失效问题并优化错误提示
