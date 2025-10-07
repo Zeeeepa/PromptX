@@ -1,5 +1,5 @@
 ---
-"@promptx/server": minor
+"@promptx/mcp-server": minor
 ---
 
 Add pdf-reader system tool with intelligent caching
