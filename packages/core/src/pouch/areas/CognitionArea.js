@@ -117,10 +117,11 @@ class CognitionArea extends BaseArea {
       // 添加关键提示
       if (this.operationType === 'prime' || this.operationType === 'recall') {
         const nodeCount = this.mind?.activatedCues?.size || 0
-        content += `💡 **使用提示**：\n`
-        content += `- 上方网络图显示了 ${nodeCount} 个记忆关键词\n`
-        content += `- **每个关键词都可以用于recall搜索相关记忆**\n`
-        content += `- 例如：recall("${this.roleId}", "网络图中的任意关键词")\n\n`
+        content += `💡 **Recall Usage Rules**：\n`
+        content += `- Network shows ${nodeCount} memory keywords\n`
+        content += `- **MUST use keywords from the network above** (cannot use arbitrary words)\n`
+        content += `- Example: recall("${this.roleId}", "keyword-from-network-above")\n`
+        content += `- If no relevant keyword found, it means no memory exists in this area\n\n`
       }
     } catch (error) {
       logger.error('[CognitionArea] Failed to render mermaid', error)
@@ -166,9 +167,9 @@ class CognitionArea extends BaseArea {
    */
   renderPrimeGuide() {
     const nodeCount = this.mind?.activatedCues?.size || 0
-    return `✅ **角色激活成功**
+    return `✅ **DMN Mode Activated** (Default Mode Network)
 
-📊 记忆网络规模：${nodeCount} 个关键词
+📊 Memory network size: ${nodeCount} keywords
 
 ${CognitivePrompts.getPrimeGuideHint()}
 `

@@ -7,42 +7,49 @@ const outputAdapter = new MCPOutputAdapter();
 export const toolxTool: ToolWithHandler = {
   name: 'toolx',
 
-  description: `ToolX 是 PromptX 的工具运行时，用于加载和执行各种工具。
+  description: `ToolX is the PromptX tool runtime for loading and executing various tools.
 
-【规范名称】promptx_toolx
-【调用说明】在提示词中使用 promptx_toolx，实际调用时自动映射到 mcp__[server]__toolx
+Architecture:
+• You (Agent/AI) run in Client (VSCode/Cursor)
+• Client connects to MCP Server (PromptX) via MCP protocol
+• MCP Server exposes tools, including toolx
+• toolx is an MCP tool for loading and executing PromptX ecosystem tools (tool://xxx)
 
-架构关系：
-• 你（Agent/AI）在 Client 中运行（如 VSCode/Cursor）
-• Client 通过 MCP 协议连接 MCP Server（PromptX）
-• MCP Server 暴露工具，包括 toolx
-• toolx 是一个 MCP 工具，用于加载和执行 PromptX 生态的工具（tool://xxx）
+⚠️ IMPORTANT: First time using any tool, you MUST use mode: manual to read the manual ⚠️
 
-⚠️⚠️⚠️重要：第一次使用任何工具必须先 mode: manual 查看手册，了解正确的参数格式⚠️⚠️⚠️ 。
-
-调用方式：使用 promptx_toolx（规范名称），传入 yaml 字符串：
+Usage: The "yaml" parameter must be a complete YAML document (not just a URL string):
 
 \`\`\`yaml
-url: tool://工具名
-mode: 模式
+tool: tool://tool-name
+mode: execute
 parameters:
-  参数名: 参数值
-  # 多行内容示例（注意竖线后换行，且内容要缩进）：
-  content: |
-    第一行内容
-    第二行内容
-    第三行内容
+  paramName: paramValue
 \`\`\`
 
-mode 说明：
-• manual - 查看工具手册【第一次必须先执行】
-  示例：
-  url: tool://tool-creator
+CORRECT examples:
+✅ "tool: tool://filesystem\\nmode: manual"
+✅ "tool: tool://pdf-reader\\nmode: execute\\nparameters:\\n  path: /file.pdf"
+
+WRONG examples:
+❌ "tool://filesystem" (missing YAML structure)
+❌ "@tool://filesystem" (don't add @ prefix, system handles it)
+❌ "tool: filesystem" (missing tool:// prefix)
+
+Field aliases (all supported):
+• tool / toolUrl / url - Tool identifier (priority: tool > toolUrl > url)
+• mode / operation - Operation mode (priority: mode > operation)
+
+Note: Always use "tool://" prefix (without @). The system converts it internally.
+
+Mode options:
+• manual - View tool manual [MUST run first]
+  Example:
+  tool: tool://tool-creator
   mode: manual
 
-• execute - 执行工具功能（默认）
-  示例：
-  url: tool://tool-creator
+• execute - Execute tool function (default)
+  Example:
+  tool: tool://tool-creator
   mode: execute
   parameters:
     tool: my-tool
@@ -53,42 +60,41 @@ mode 说明：
         execute() { return 'hello'; }
       };
 
-• configure - 配置环境变量
-  示例：
-  url: tool://my-tool
+• configure - Configure environment variables
+  Example:
+  tool: tool://my-tool
   mode: configure
   parameters:
     API_KEY: sk-xxx123
     TIMEOUT: 30000
 
-• rebuild - 重建依赖
-  示例：
-  url: tool://my-tool
+• rebuild - Rebuild dependencies
+  Example:
+  tool: tool://my-tool
   mode: rebuild
 
-• log - 查看日志
-  示例：
-  url: tool://my-tool
+• log - View logs
+  Example:
+  tool: tool://my-tool
   mode: log
   parameters:
     action: tail
     lines: 100
 
-• dryrun - 模拟执行
-  示例：
-  url: tool://my-tool
+• dryrun - Simulate execution
+  Example:
+  tool: tool://my-tool
   mode: dryrun
   parameters:
     input: test-data
-⚠️⚠️⚠️再次强调，重要：第一次使用任何工具必须先 mode: manual 查看手册，了解正确的参数格式⚠️⚠️⚠️ 。
 
-系统工具可以直接使用的工具无需发现：
-- tool://filesystem - 文件系统操作
-- tool://role-creator - 创建AI角色,女娲专用
-- tool://tool-creator - 创建工具,鲁班专用
-- tool://pdf-reader - 阅读 PDF 文件的内容的工具
-- tool://excel-tool - 处理 Excel 文件的工具, 支持 读取/写入/修改 等功能
-- tool://word-tool - 处理 Word 文件的工具, 支持 读取/写入/修改 等功能
+System tools (no discovery needed):
+- tool://filesystem - File system operations
+- tool://role-creator - Create AI roles (Nuwa's tool)
+- tool://tool-creator - Create tools (Luban's tool)
+- tool://pdf-reader - Read PDF files
+- tool://excel-tool - Process Excel files (read/write/modify)
+- tool://word-tool - Process Word files (read/write/modify)
 
 `,
 
@@ -105,23 +111,49 @@ mode 说明：
 
   handler: async (args: { yaml: string }) => {
     try {
-      // YAML → JSON 转换
-      const config = yaml.load(args.yaml) as any;
+      // Auto-correct common AI mistakes
+      let yamlInput = args.yaml.trim();
 
-      // 验证必需字段
-      if (!config.url) {
-        throw new Error('缺少必需字段: url\n示例: url: tool://filesystem');
+      // Case 1: Just a plain URL string like "tool://filesystem" or "@tool://filesystem"
+      if (yamlInput.match(/^@?tool:\/\/[\w-]+$/)) {
+        const toolName = yamlInput.replace(/^@?tool:\/\//, '');
+        yamlInput = `tool: tool://${toolName}\nmode: execute`;
       }
 
-      // 验证 URL 格式
-      if (!config.url.startsWith('tool://')) {
-        throw new Error(`url 格式错误: ${config.url}\n必须以 tool:// 开头`);
+      // Case 2: Handle escaped backslashes and quotes: tool: \"@tool://xxx\"
+      // This happens when AI generates YAML in a JSON string
+      yamlInput = yamlInput.replace(/\\\\/g, '\\').replace(/\\"/g, '"');
+
+      // Case 3: Remove @ prefix from tool URLs: @tool://xxx -> tool://xxx
+      yamlInput = yamlInput.replace(/@tool:\/\//g, 'tool://');
+
+      // Case 4: Remove quotes around tool URLs: tool: "tool://xxx" -> tool: tool://xxx
+      yamlInput = yamlInput.replace(/(tool|toolUrl|url):\s*"(tool:\/\/[^"]+)"/g, '$1: $2');
+
+      // YAML → JSON conversion
+      const config = yaml.load(yamlInput) as any;
+
+      // Normalize field names (support aliases for AI-friendliness)
+      // Priority: tool > toolUrl > url
+      const toolIdentifier = config.tool || config.toolUrl || config.url;
+
+      // Priority: mode > operation
+      const operationMode = config.mode || config.operation;
+
+      // Validate required fields
+      if (!toolIdentifier) {
+        throw new Error('Missing required field: tool\nExample: tool: tool://filesystem\nAliases supported: tool / toolUrl / url');
       }
 
-      // 内部转换为 @tool:// 格式（保持与核心系统兼容）
-      config.url = config.url.replace('tool://', '@tool://');
+      // Validate URL format
+      if (!toolIdentifier.startsWith('tool://')) {
+        throw new Error(`Invalid tool format: ${toolIdentifier}\nMust start with tool://`);
+      }
 
-      // 获取核心模块
+      // Convert to internal @tool:// format (compatibility with core system)
+      const internalUrl = toolIdentifier.replace('tool://', '@tool://');
+
+      // Get core module
       const core = await import('@promptx/core');
       const coreExports = core.default || core;
       const cli = (coreExports as any).cli || (coreExports as any).pouch?.cli;
@@ -130,9 +162,9 @@ mode 说明：
         throw new Error('CLI not available in @promptx/core');
       }
 
-      // 构建 CLI 参数（保持原有接口）
-      const cliArgs = [config.url];
-      cliArgs.push(config.mode || 'execute');
+      // Build CLI arguments (maintain original interface)
+      const cliArgs = [internalUrl];
+      cliArgs.push(operationMode || 'execute');
 
       if (config.parameters) {
         cliArgs.push(JSON.stringify(config.parameters));
@@ -142,24 +174,24 @@ mode 说明：
         cliArgs.push('--timeout', config.timeout.toString());
       }
 
-      // 执行
+      // Execute
       const result = await cli.execute('toolx', cliArgs);
       return outputAdapter.convertToMCPFormat(result);
 
     } catch (error: any) {
-      // YAML 解析错误
+      // YAML parsing errors
       if (error.name === 'YAMLException') {
-        // 检查是否是多行字符串问题
+        // Check for multiline string issues
         if (error.message.includes('bad indentation') || error.message.includes('mapping entry')) {
-          throw new Error(`YAML 格式错误: ${error.message}\n\n多行内容需要使用 | 符号，例如:\ncontent: |\n  这是第一行\n  这是第二行\n\n注意：竖线后要换行，内容要缩进2个空格`);
+          throw new Error(`YAML format error: ${error.message}\n\nMultiline content requires | symbol, example:\ncontent: |\n  First line\n  Second line\n\nNote: Newline after |, indent content with 2 spaces`);
         }
-        throw new Error(`YAML 格式错误: ${error.message}\n请检查缩进（使用空格）和语法`);
+        throw new Error(`YAML format error: ${error.message}\nCheck indentation (use spaces) and syntax`);
       }
 
-      // 工具不存在
+      // Tool not found
       if (error.message?.includes('Tool not found')) {
-        const toolName = args.yaml.match(/url:\s*tool:\/\/(\w+)/)?.[1];
-        throw new Error(`工具 '${toolName}' 不存在\n使用 discover 查看可用工具`);
+        const toolName = args.yaml.match(/(?:tool|toolUrl|url):\s*tool:\/\/(\w+)/)?.[1];
+        throw new Error(`Tool '${toolName}' not found\nUse discover to view available tools`);
       }
 
       throw error;

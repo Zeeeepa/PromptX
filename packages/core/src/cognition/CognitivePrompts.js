@@ -94,13 +94,12 @@ recall(搜索) → 回答 → remember(保存) ✓
    * 用于：CognitionArea.renderPrimeGuide()
    */
   static getPrimeGuideHint() {
-    return `🧠 **认知习惯提醒**：
-• 看到任务 → 先recall搜索经验
-• 网络有词就选词，没词就用任务关键词探索
-• 最多探索3次，确认无记忆就用预训练知识
-• 回答完成 → remember保存要点
+    return `🧠 **Cognitive Workflow**：
+• See task → recall(search experience) → answer → remember(save insights)
+• If recall returns null → use pre-trained knowledge → must remember
+• Keep this cycle to build richer memory network
 
-下一步：接收任务时先recall相关经验`
+Next step: When receiving a task, recall relevant experience first`
   }
 }
 
