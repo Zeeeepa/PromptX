@@ -33,9 +33,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
-        env:
-          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
-          ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
 
       - name: Build all packages
         run: pnpm build
@@ -93,9 +90,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
-        env:
-          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
-          ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
 
       - name: Build all packages
         run: pnpm build
@@ -142,9 +136,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
-        env:
-          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
-          ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
 
       - name: Build all packages
         run: pnpm build
