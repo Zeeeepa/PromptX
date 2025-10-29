@@ -12,6 +12,8 @@ import { StopServerUseCase } from '~/main/application/useCases/StopServerUseCase
 import { UpdateManager } from '~/main/application/UpdateManager'
 import * as logger from '@promptx/logger'
 import * as path from 'node:path'
+import { AutoStartManager } from '@promptx/config'
+import { ServerConfig } from '~/main/domain/entities/ServerConfig'
 
 class PromptXDesktopApp {
   private trayPresenter: TrayPresenter | null = null
@@ -20,15 +22,14 @@ class PromptXDesktopApp {
   private configPort: FileConfigAdapter | null = null
   private notificationPort: ElectronNotificationAdapter | null = null
   private updateManager: UpdateManager | null = null
+  private autoStartManager: AutoStartManager | null = null
 
-  async initialize(): Promise<void> {
+   async initialize(): Promise<void> {
     logger.info('Initializing PromptX Desktop...')
-    
+
     // Setup Node.js environment for ToolSandbox
     this.setupNodeEnvironment()
-    
-    // Remove IPC logging handler as renderers will use console directly
-    
+
     // Wait for app to be ready
     await app.whenReady()
     logger.info('Electron app ready')
@@ -38,6 +39,18 @@ class PromptXDesktopApp {
       app.dock.hide()
       logger.info('Dock icon hidden (macOS)')
     }
+
+    // === 先创建 autoStartManager ===
+    this.autoStartManager = new AutoStartManager({
+      name: 'PromptX Desktop',
+      path: process.execPath,
+      isHidden: true, // 开机启动时隐藏窗口
+      mac: { useLaunchAgent: true }  // macOS: 使用 LaunchAgent 更稳
+    })
+
+    // === 然后设置 IPC ===
+    this.setupAutoStartIPC()
+    this.setupServerConfigIPC()
 
     // Setup infrastructure
     logger.info('Setting up infrastructure...')
@@ -55,7 +68,7 @@ class PromptXDesktopApp {
     // Setup presentation layer
     logger.info('Setting up presentation layer...')
     this.setupPresentation(startUseCase, stopUseCase)
-    
+
     // Setup ResourceManager for roles and tools
     logger.info('Setting up resource manager...')
     this.resourceManager = new ResourceManager()
@@ -64,17 +77,19 @@ class PromptXDesktopApp {
     // Handle app events
     logger.info('Setting up app events...')
     this.setupAppEvents()
-    
+
     logger.info('PromptX Desktop initialized successfully')
-    
+
     // Auto-start server on app launch
     logger.info('Auto-starting PromptX server...')
     try {
       await startUseCase.execute()
       logger.info('PromptX server started automatically')
     } catch (error) {
-      logger.error('Failed to auto-start server:', error)
+        const err = String(error);
+      logger.error('Failed to auto-start server:', err)
     }
+
 
     // Auto check and download updates on startup (non-blocking)
     logger.info('Scheduling automatic update check and download...')
@@ -121,6 +136,85 @@ class PromptXDesktopApp {
       process.env.PATH = electronDir + path.delimiter + currentPath
       logger.debug(`Updated PATH with Electron directory: ${electronDir}`)
     }
+  }
+   private setupAutoStartIPC(): void {
+      ipcMain.handle('auto-start:enable', async () => {
+        return await this.autoStartManager?.enable()
+      })
+
+      ipcMain.handle('auto-start:disable', async () => {
+        return await this.autoStartManager?.disable()
+      })
+
+      ipcMain.handle('auto-start:status', async () => {
+        return await this.autoStartManager?.isEnabled()
+      })
+    }
+
+  private setupServerConfigIPC(): void {
+    ipcMain.handle('server-config:get', async () => {
+      if (!this.configPort) {
+        return ServerConfig.default().toJSON()
+      }
+      const res = await this.configPort.load()
+      if (res.ok) {
+        return res.value.toJSON()
+      }
+      // 加载失败则返回默认
+      return ServerConfig.default().toJSON()
+    })
+
+    ipcMain.handle('server-config:update', async (_event, payload: { host: string; port: number; debug?: boolean }) => {
+      const base = ServerConfig.default().toJSON()
+      const created = ServerConfig.create({
+        ...base,
+        host: payload.host,
+        port: payload.port,
+        debug: payload.debug ?? base.debug
+      })
+      if (!created.ok) {
+        throw new Error(created.error.message)
+      }
+      const cfg = created.value
+      // 持久化
+      if (this.configPort) {
+        const saveRes = await this.configPort.save(cfg)
+        if (!saveRes.ok) {
+          throw new Error(saveRes.error.message)
+        }
+      }
+      // 应用配置（重启服务）
+      if (this.serverPort) {
+        const restartRes = await this.serverPort.restart(cfg)
+        if (!restartRes.ok) {
+          throw new Error(restartRes.error.message)
+        }
+      }
+      return cfg.toJSON()
+    })
+
+    ipcMain.handle('server-config:reset', async () => {
+      const cfg = ServerConfig.default()
+      // 重置持久化文件
+      if (this.configPort) {
+        const resetRes = await this.configPort.reset()
+        if (!resetRes.ok) {
+          // 如果 reset 不可用或失败，则直接 save 默认
+          const saveRes = await this.configPort.save(cfg)
+          if (!saveRes.ok) {
+            throw new Error(saveRes.error.message)
+          }
+        }
+      }
+      // 应用默认配置
+      if (this.serverPort) {
+        const restartRes = await this.serverPort.restart(cfg)
+        if (!restartRes.ok) {
+          throw new Error(restartRes.error.message)
+        }
+      }
+      return cfg.toJSON()
+    })
   }
 
   private setupInfrastructure(): void {
@@ -213,7 +307,8 @@ class PromptXDesktopApp {
         }
       }
     } catch (error) {
-      logger.error('Error stopping server:', error)
+      const err = String(error)
+      logger.error('Error stopping server:', err)
     }
 
     // Cleanup UI components
