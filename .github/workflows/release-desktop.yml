@@ -198,24 +198,54 @@ jobs:
 
           for dmg in *.dmg; do
             if [ -f "$dmg" ]; then
-              echo "Submitting $dmg for notarization..."
+              echo "=========================================="
+              echo "📦 Processing: $dmg"
+              echo "📊 File size: $(ls -lh "$dmg" | awk '{print $5}')"
+              echo "=========================================="
 
-              # 提交公证
+              echo "🚀 Submitting $dmg for notarization..."
+              echo "   Apple ID: ${{ secrets.APPLE_ID }}"
+              echo "   Team ID: ${{ secrets.APPLE_TEAM_ID }}"
+
+              # 提交公证 - 添加详细输出
+              set +e  # 不立即退出
               output=$(xcrun notarytool submit "$dmg" \
                 --apple-id "${{ secrets.APPLE_ID }}" \
                 --password "${{ secrets.APPLE_ID_PASSWORD }}" \
                 --team-id "${{ secrets.APPLE_TEAM_ID }}" \
                 --wait 2>&1)
+              exit_code=$?
+              set -e
+
+              echo "📋 Notarization output:"
+              echo "$output"
+              echo ""
+              echo "Exit code: $exit_code"
 
               # 检查公证状态
-              if echo "$output" | grep -q "Accepted"; then
+              if [ $exit_code -eq 0 ] && echo "$output" | grep -q "Accepted"; then
                 echo "✅ Notarization accepted for $dmg"
+
                 # Staple the ticket
+                echo "🔖 Stapling ticket to $dmg..."
                 xcrun stapler staple "$dmg"
                 echo "✅ Successfully stapled $dmg"
               else
-                echo "Warning: Notarization may have failed for $dmg"
-                echo "$output"
+                echo "❌ Notarization failed for $dmg"
+                echo "Full output above ⬆️"
+
+                # Extract submission ID if available
+                submission_id=$(echo "$output" | grep -o 'id: [a-f0-9-]*' | head -1 | cut -d' ' -f2)
+                if [ -n "$submission_id" ]; then
+                  echo "📝 Submission ID: $submission_id"
+                  echo "Fetching detailed log..."
+                  xcrun notarytool log "$submission_id" \
+                    --apple-id "${{ secrets.APPLE_ID }}" \
+                    --password "${{ secrets.APPLE_ID_PASSWORD }}" \
+                    --team-id "${{ secrets.APPLE_TEAM_ID }}" || true
+                fi
+
+                exit 1
               fi
             fi
           done
