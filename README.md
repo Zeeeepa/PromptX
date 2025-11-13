@@ -29,6 +29,18 @@
 
 ---
 
+## 🎬 See PromptX in Action
+
+<div align="center">
+
+[![PromptX Demo Video](assets/video-head.png)](https://www.youtube.com/watch?v=R6ENaj9i0oE)
+
+*Click to watch: See how PromptX transforms AI interactions with memory, roles, and intelligent tools*
+
+</div>
+
+---
+
 ## 💬 Chat is All you Need - Natural conversation, instant expertise
 
 ### ✨ Experience PromptX Magic in 3 Steps

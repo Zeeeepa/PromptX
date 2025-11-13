@@ -30,6 +30,18 @@
 
 ---
 
+## 🎬 观看 PromptX 实战演示
+
+<div align="center">
+
+[![PromptX Demo Video](assets/video-head.png)](https://www.youtube.com/watch?v=R6ENaj9i0oE)
+
+*点击观看：了解 PromptX 如何通过记忆、角色和智能工具改变 AI 交互*
+
+</div>
+
+---
+
 ## 💬 Chat is All you Need - 自然对话，瞬间专业
 
 ### ✨ 三步体验 PromptX 魔力
