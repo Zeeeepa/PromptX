@@ -29,18 +29,6 @@
 
 ---
 
-## 🎬 觀看 PromptX 實戰演示
-
-<div align="center">
-
-[![PromptX Demo Video](assets/video-head.png)](https://www.youtube.com/watch?v=R6ENaj9i0oE)
-
-*點擊觀看：了解 PromptX 如何通過記憶、角色和智慧工具改變 AI 互動*
-
-</div>
-
----
-
 ## 💬 Chat is All you Need - 自然對話，瞬間專業
 
 ### ✨ 三步體驗 PromptX 魔力
@@ -67,7 +55,7 @@ AI：    以專業產品經理身份，提供深度產品策略建議
 
 <div align="center">
 
-[![PromptX 演示影片](https://img.youtube.com/vi/R6ENaj9i0oE/maxresdefault.jpg)](https://www.youtube.com/watch?v=R6ENaj9i0oE)
+[![PromptX 演示影片](assets/video-head.png)](https://www.youtube.com/watch?v=R6ENaj9i0oE)
 
 *點擊觀看：了解 PromptX 如何透過記憶、角色和智慧工具改變 AI 互動*
 

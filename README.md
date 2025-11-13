@@ -29,18 +29,6 @@
 
 ---
 
-## 🎬 See PromptX in Action
-
-<div align="center">
-
-[![PromptX Demo Video](assets/video-head.png)](https://www.youtube.com/watch?v=R6ENaj9i0oE)
-
-*Click to watch: See how PromptX transforms AI interactions with memory, roles, and intelligent tools*
-
-</div>
-
----
-
 ## 💬 Chat is All you Need - Natural conversation, instant expertise
 
 ### ✨ Experience PromptX Magic in 3 Steps
@@ -67,7 +55,7 @@ AI:   Provides in-depth product strategy advice as a professional product manage
 
 <div align="center">
 
-[![PromptX Demo Video](https://img.youtube.com/vi/R6ENaj9i0oE/maxresdefault.jpg)](https://www.youtube.com/watch?v=R6ENaj9i0oE)
+[![PromptX Demo Video](assets/video-head.png)](https://www.youtube.com/watch?v=R6ENaj9i0oE)
 
 *Click to watch: See how PromptX transforms AI interactions with memory, roles, and intelligent tools*
 
