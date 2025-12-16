@@ -9,6 +9,9 @@ jobs:
   publish-npm:
     name: Publish to npm
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -89,10 +92,8 @@ jobs:
           
           echo "Publishing with tag: $NPM_TAG"
           
-          # Publish workspace packages with appropriate tag
-          pnpm -r publish --access public --no-git-checks --tag $NPM_TAG
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.ORG_NPM_TOKEN }}
+          # Publish workspace packages with appropriate tag (using OIDC Trusted Publisher)
+          pnpm -r publish --access public --no-git-checks --tag $NPM_TAG --provenance
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
