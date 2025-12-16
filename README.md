@@ -241,6 +241,30 @@ Turn AI into your PDF reading expert with smart caching.
 
 ---
 
+## 📄 **Research**
+
+PromptX has been submitted to **WWW Companion '26**.
+
+**Paper:** *PromptX: A Cognitive Agent Platform with Long-term Memory*
+
+🔗 [Read the Paper](https://research.deepractice.ai) | [PDF Download](https://research.deepractice.ai/PromptX_WWW26_Paper.pdf)
+
+<details>
+<summary>📚 Citation (BibTeX)</summary>
+
+```bibtex
+@inproceedings{promptx2026,
+  title={PromptX: A Cognitive Agent Platform with Long-term Memory},
+  author={Wang, Binhao and Huang, Jianglin and Hu, Xiao and Jiang, Shan and Wang, Maolin and Yang, Ching-ho},
+  booktitle={Proceedings of the WWW Companion '26},
+  year={2026}
+}
+```
+
+</details>
+
+---
+
 ## ⭐ **Star Growth Trend**
 
 <div align="center">
