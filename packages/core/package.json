@@ -1,6 +1,6 @@
 {
   "name": "@promptx/core",
-  "version": "1.27.8",
+  "version": "1.28.0",
   "description": "Core library for PromptX - DPML-powered AI prompt framework",
   "main": "dist/index.js",
   "type": "commonjs",
@@ -46,7 +46,11 @@
     "glob": "^10.4.5",
     "importx": "^0.5.2",
     "is-electron": "^2.2.2",
-    "peggy": "^5.0.5"
+    "peggy": "^5.0.5",
+    "rolexjs": "^0.11.0",
+    "@rolexjs/core": "^0.11.0",
+    "@rolexjs/local-platform": "^0.11.0",
+    "@rolexjs/parser": "^0.11.0"
   },
   "files": [
     "dist/**/*",
